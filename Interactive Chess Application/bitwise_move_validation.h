@@ -13,13 +13,18 @@ public:
 	void callPieceTypesValidator();
 private:
 	void determinePickedPiece();
-	void directionHelper();
-	void pawnValidation();
-	void knightValidation();
-	void rookValidation();
-	void bishopValidation();
-	void queenValidation();
-	void kingValidaiton();
+	uint64_t universalRay(uint8_t, uint64_t);
+	uint64_t rayHalvingHelper(uint64_t*, uint64_t*, uint64_t*);
+	uint64_t diagonalTransformation(uint64_t*);
+	uint64_t nonDiagonalTransformation(uint64_t*, uint64_t*);
+	uint64_t findEnemyBlockersHelper(uint64_t*, uint64_t*);
+	uint64_t findAllyBlockersHelper(uint64_t*, uint64_t*);
+	uint64_t pawnValidation();
+	uint64_t knightValidation();
+	uint64_t rookValidation();
+	uint64_t bishopValidation();
+	uint64_t queenValidation();
+	uint64_t kingValidaiton();
 	void moveValidation();
 	void updateBoards();
 	void checkPositionsBoard();
@@ -51,4 +56,6 @@ private:
 
 	uint64_t allies_;
 	uint64_t enemies_;
+
+	uint64_t universal_ray_;
 };

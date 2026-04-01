@@ -6,7 +6,8 @@ InitGameState::InitGameState() {
 	white_knights_   = 0x0000000000000042;
 	white_rooks_     = 0x0000000000000081;
 	white_bishops_   = 0x0000000000000024;
-	white_queens_    = 0x0000000000000008;
+	//white_queens_    = 0x0000000000000008;
+	white_queens_    = 0x0000002000000008;
 	white_king_      = 0x0000000000000010;
 
 	black_pawns_     = 0x00FF000000000000;
@@ -16,7 +17,8 @@ InitGameState::InitGameState() {
 	black_queens_    = 0x0800000000000000;
 	black_king_      = 0x1000000000000000;
 
-	white_occupancy_ = 0x000000000000FFFF;
+	//white_occupancy_ = 0x000000000000FFFF;
+	white_occupancy_ = 0x000000200000ffff;
 	black_occupancy_ = 0xFFFF000000000000;
 	all_occupancy_   = white_occupancy_ | black_occupancy_;
 }

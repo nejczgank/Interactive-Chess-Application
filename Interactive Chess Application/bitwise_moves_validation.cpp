@@ -1,3 +1,5 @@
+//FIX DISPLAY
+
 #include "bitwise_move_validation.h"
 
 BitwiseMoveValidation::BitwiseMoveValidation(InitGameState::Board& all_boards, int picked_square_idx, int placement_square_idx) {
@@ -28,10 +30,14 @@ BitwiseMoveValidation::BitwiseMoveValidation(InitGameState::Board& all_boards, i
 	compressed_piece_type_ = 0;
 	allies_ = 0;
 	enemies_ = 0;
+	universal_ray_ = 0;
 }
 
 void BitwiseMoveValidation::determinePickedPiece() {
 	//check every board to see if the picked_square_idx is present on that board and compact it
+
+	//DONT FORGET THAT YOU'LL HAVE TO UPDATE all_boards_
+	//though, I'll try to make it branchless now that I better understand this concept
 
 	uint64_t InitGameState::Board::* whiteBoardSelectors[]{
 		&InitGameState::Board::white_pawns,
@@ -45,7 +51,8 @@ void BitwiseMoveValidation::determinePickedPiece() {
 	if ((white_occupancy_ & (1ULL << picked_square_idx_)) != 0) {
 		for (int i = 1; i <= 6; i++) {
 			if (all_boards_.*whiteBoardSelectors[i-1] & (1ULL << picked_square_idx_)) {
-				compressed_piece_type_ += i;
+				//compressed_piece_type_ += i; //this doesn't shift the bit to its adequate place
+				compressed_piece_type_ = (1ULL << i-1);
 				allies_ = white_occupancy_;
 				enemies_ = black_occupancy_;
 				return;
@@ -65,7 +72,8 @@ void BitwiseMoveValidation::determinePickedPiece() {
 	if ((black_occupancy_ & (1ULL << picked_square_idx_)) != 0) {
 		for (int i = 1; i <= 6; i++) {
 			if (all_boards_.*blackBoardSelectors[i-1] & (1ULL << picked_square_idx_)) {
-				compressed_piece_type_ += i + 6;
+				//compressed_piece_type_ += i + 6;
+				compressed_piece_type_ = (1ULL << i + 6 - 1);
 				allies_ = black_occupancy_;
 				enemies_ = white_occupancy_;
 				return;
@@ -75,40 +83,135 @@ void BitwiseMoveValidation::determinePickedPiece() {
 }
 
 void BitwiseMoveValidation::callPieceTypesValidator() {
-	directionHelper();
-}
-
-void BitwiseMoveValidation::directionHelper() {
-
-	// south ray
-	uint64_t halving_mask = (1ULL << picked_square_idx_) - 1;
-	uint64_t full_transposed_ray = (0x101010101010101 << picked_square_idx_ % 8);
-	uint64_t south = halving_mask & full_transposed_ray;
-
-	//blockers conditional preperation
-	uint64_t blockers = white_occupancy_ & south;
-	uint64_t has_blockers = -(blockers != 0);
-	//uint64_t blocker_halving_mask = (((1ULL << std::countr_zero(blockers) + 1) - 1) & has_blockers) | (((1ULL << std::countr_zero(blockers) + 1) - 1) & ~has_blockers);
-
-	//blockers conditional evaluation
-	//uint64_t msb_blocker_mask = (1ULL << (sizeof(blockers) * 8 - std::countl_zero(std::bit_floor(blockers))));
-	uint64_t msb_blocker_mask = std::bit_floor(blockers);
-	uint64_t msb_halving_mask = ~(msb_blocker_mask - 1);
-	//branchless if statement assesing the final ray outcome with or without blockers
-	//(condition_a_value & truth_mask) | (condition_b_value & ~truth_mask
-	uint64_t adjusted_south = (has_blockers & (msb_halving_mask & south)) | (~has_blockers & south);
-
-
-	//tole morm popravit ker moj lsb trik ne deluje zaradi napačnega indeksiranja
-	//preveri točno kako je že bilo treba pridobiti 
-	std::cout << halving_mask;
-}
-
-void BitwiseMoveValidation::pawnValidation() {
 	
+	determinePickedPiece();
+
+	uint64_t is_pawn   = -((compressed_piece_type_ & 0x1)	   | (compressed_piece_type_ >> 6 & 0x1));
+	uint64_t is_knight = -((compressed_piece_type_ >> 1 & 0x1) | (compressed_piece_type_ >> 7 & 0x1));
+	uint64_t is_rook   = -((compressed_piece_type_ >> 2 & 0x1) | (compressed_piece_type_ >> 8 & 0x1));
+	uint64_t is_bishop = -((compressed_piece_type_ >> 3 & 0x1) | (compressed_piece_type_ >> 9 & 0x1));
+	uint64_t is_queen  = -((compressed_piece_type_ >> 4 & 0x1) | (compressed_piece_type_ >> 10 & 0x1));
+	uint64_t is_king   = -((compressed_piece_type_ >> 5 & 0x1) | (compressed_piece_type_ >> 11 & 0x1));
+	
+	uint64_t determine_legal_moves = ((is_pawn & pawnValidation())     |
+									  (is_knight & knightValidation()) |
+									  (is_rook & rookValidation())	   |
+									  (is_bishop & bishopValidation()) |
+									  (is_queen & queenValidation())   |
+									  (is_king & kingValidaiton())
+	);
 }
 
-void BitwiseMoveValidation::knightValidation() {
+uint64_t BitwiseMoveValidation::universalRay(uint8_t direction_bitfield, uint64_t full_ray) {
+
+	uint64_t significant_bit_truth_mask = -(direction_bitfield & 0x01);
+	uint64_t transposition_truth_mask = -(direction_bitfield >> 1 & 0x01);
+
+	//find the appropriate half ray
+	uint64_t halved_ray = rayHalvingHelper(&significant_bit_truth_mask, &transposition_truth_mask, &full_ray);
+	//adjust ray for enemy blockers
+	uint64_t ray_to_enemy_blockers = findEnemyBlockersHelper(&significant_bit_truth_mask, &halved_ray);
+	//adjust ray for ally blockers
+	uint64_t ray_to_ally_blockers = findAllyBlockersHelper(&significant_bit_truth_mask, &halved_ray);
+
+	//found another issue as i fixed the ally blockers:
+	//since you cannot move in the case of a8 \>, halved_ray or ray_to_enemy_blockers overrule.
+	//while this would be completely fine in most cases, here the problem lies in the the fact there is no distinction
+	//between no possible movement defaulting to 0 and no blockers defaulting to 0
+	//write the distinction
+	uint64_t if_no_path_forward = -((halved_ray & allies_) != 0);
+
+	// if blockers are both empty then result is halved ray
+	// if only one blocker exit than that blocker is the result
+	// if both blockers exist then result is the combination of the two
+
+	uint64_t if_ray_to_enemy_blockers = -(ray_to_enemy_blockers != 0);
+	uint64_t if_ray_to_ally_blockers = -(ray_to_ally_blockers != 0);
+	uint64_t if_only_one_blocker_exists = if_ray_to_enemy_blockers ^ if_ray_to_ally_blockers;
+	uint64_t if_both_blockers_exist = if_ray_to_enemy_blockers & if_ray_to_ally_blockers;
+
+	uint64_t universal_ray =	(if_only_one_blocker_exists & ~if_no_path_forward & ray_to_enemy_blockers)					|
+								(if_only_one_blocker_exists & ~if_no_path_forward & ray_to_ally_blockers)					|
+								(if_both_blockers_exist & (ray_to_enemy_blockers & ray_to_ally_blockers)					|
+								(~if_both_blockers_exist & ~if_only_one_blocker_exists & ~if_no_path_forward & halved_ray)
+	);
+
+	return universal_ray;
+}
+
+uint64_t BitwiseMoveValidation::rayHalvingHelper(uint64_t* significant_bit_truth_mask, uint64_t* transposition_truth_mask, uint64_t* full_ray) {
+
+	uint64_t if_significant_bit_mask = -(*significant_bit_truth_mask == 0);
+	uint64_t if_diagonal = -((*full_ray == 0x102040810204080) | (*full_ray == 0x8040201008040201));
+
+	uint64_t determined_transposed_ray = (if_diagonal & (diagonalTransformation(full_ray))) | (~if_diagonal & (nonDiagonalTransformation(transposition_truth_mask, full_ray)));
+	uint64_t determined_halving = (if_significant_bit_mask & ~((1ULL << (picked_square_idx_ + 1)) - 1)) | (~if_significant_bit_mask & ((1ULL << picked_square_idx_) - 1));
+
+	return determined_transposed_ray & determined_halving;
+}
+
+uint64_t BitwiseMoveValidation::diagonalTransformation(uint64_t* full_ray) {
+	
+	uint64_t if_right_starting_diagonal = -(*full_ray == 0x102040810204080);
+	uint64_t if_left_starting_diagonal = -(*full_ray == 0x8040201008040201);
+
+	int rank = (int)(picked_square_idx_ / 8);
+	int file = (int)(picked_square_idx_ % 8);
+
+	uint64_t if_shift_1 = -((rank - file) >= 0);
+	uint64_t if_shift_2 = -((file - rank) >= 0);
+
+	int opposite_distance = (rank + file) - 7;
+
+	uint64_t if_shift_3 = -(opposite_distance >= 0);
+	uint64_t if_shift_4 = -(opposite_distance < 0);
+
+	int safe_shift_1 = (rank - file) * 8;
+	int safe_shift_2 = (file - rank) * 8;
+	int safe_shift_3 = (opposite_distance) * 8;
+	int safe_shift_4 = (-opposite_distance) * 8;
+
+	uint64_t determined_transposing = (if_left_starting_diagonal & if_shift_1 & (*full_ray << safe_shift_1))  | 
+									  (if_left_starting_diagonal & if_shift_2 & (*full_ray >> safe_shift_2))  | 
+									  (if_right_starting_diagonal & if_shift_3 & (*full_ray << safe_shift_3)) | 
+									  (if_right_starting_diagonal & if_shift_4 & (*full_ray >> safe_shift_4)
+	);
+
+	return determined_transposing;
+}
+
+uint64_t BitwiseMoveValidation::nonDiagonalTransformation(uint64_t* transposition_truth_mask, uint64_t* full_ray) {
+
+	uint64_t if_transposition_mask = -(*transposition_truth_mask == 0);
+	uint64_t determined_transposing = (if_transposition_mask & (picked_square_idx_ % 8)) | (~if_transposition_mask & (picked_square_idx_ / 8));
+	uint64_t transposed_ray = (if_transposition_mask & (*full_ray << determined_transposing)) | (~if_transposition_mask & (*full_ray << (determined_transposing * 8)));
+
+	return transposed_ray;
+}
+
+uint64_t BitwiseMoveValidation::findEnemyBlockersHelper(uint64_t* significant_bit_truth_mask, uint64_t* halved_ray) {
+	
+	uint64_t found_blockers = *halved_ray & enemies_;
+	uint64_t if_significant_bit_mask = -(*significant_bit_truth_mask == 0);
+	uint64_t determined_halving = (if_significant_bit_mask & (((found_blockers & (0ULL - found_blockers)) - 1) | (found_blockers & (0ULL - found_blockers)))) | (~if_significant_bit_mask & ~(std::bit_floor(found_blockers) - 1));
+
+	return determined_halving & *halved_ray;
+}
+
+uint64_t BitwiseMoveValidation::findAllyBlockersHelper(uint64_t* significant_bit_truth_mask, uint64_t* halved_ray) {
+
+	uint64_t found_blockers = *halved_ray & allies_;
+	uint64_t if_significant_bit_mask = -(*significant_bit_truth_mask == 0);
+	uint64_t determined_halving = (if_significant_bit_mask & (((found_blockers & (0ULL - found_blockers)) - 1))) | (~if_significant_bit_mask & ~((std::bit_floor(found_blockers) - 1) | std::bit_floor(found_blockers)));
+
+	return determined_halving & *halved_ray;
+}
+
+uint64_t BitwiseMoveValidation::pawnValidation() {
+	return 0;
+}
+
+uint64_t BitwiseMoveValidation::knightValidation() {
 
 	uint64_t knight_mask = 0;
 
@@ -127,23 +230,51 @@ void BitwiseMoveValidation::knightValidation() {
 	knight_mask |= ((1ULL << picked_square_idx_) & not_b & not_a) << 6 & ~allies_;
 	knight_mask |= ((1ULL << picked_square_idx_) & not_a) << 15 & ~allies_;
 
-	std::cout << knight_mask;
+	return knight_mask;
 }
 
-void BitwiseMoveValidation::rookValidation() {
+uint64_t BitwiseMoveValidation::rookValidation() {
 
+	uint64_t rook_mask = 0;
+	
+	rook_mask |= universalRay(0x0, 0x101010101010101); //north
+	rook_mask |= universalRay(0x2, 0xff);			   //east
+	rook_mask |= universalRay(0x1, 0x101010101010101); //south
+	rook_mask |= universalRay(0x3, 0xff);			   //west
+
+	return rook_mask;
 }
 
-void BitwiseMoveValidation::bishopValidation() {
+uint64_t BitwiseMoveValidation::bishopValidation() {
 
+	uint64_t bishop_mask = 0;
+
+	bishop_mask |= universalRay(0x0, 0x8040201008040201); //north-east
+	bishop_mask |= universalRay(0x1, 0x102040810204080);  //south-east
+	bishop_mask |= universalRay(0x1, 0x102040810204080);  //south-west
+	bishop_mask |= universalRay(0x0, 0x8040201008040201); //north-west
+
+	return bishop_mask;
 }
 
-void BitwiseMoveValidation::queenValidation() {
+uint64_t BitwiseMoveValidation::queenValidation() {
 
+	uint64_t queen_mask = 0;
+
+	queen_mask |= universalRay(0x0, 0x101010101010101);  //north
+	queen_mask |= universalRay(0x0, 0x8040201008040201); //north-east
+	queen_mask |= universalRay(0x2, 0xff);				 //east
+	queen_mask |= universalRay(0x1, 0x102040810204080);  //south-east
+	queen_mask |= universalRay(0x1, 0x101010101010101);  //south		//BROKEN
+	queen_mask |= universalRay(0x1, 0x102040810204080);  //south-west	//BROKEN
+	queen_mask |= universalRay(0x3, 0xff);				 //west
+	queen_mask |= universalRay(0x0, 0x8040201008040201); //north-west	//BROKEN
+
+	return queen_mask;
 }
 
-void BitwiseMoveValidation::kingValidaiton() {
-
+uint64_t BitwiseMoveValidation::kingValidaiton() {
+	return 0;
 }
 
 void BitwiseMoveValidation::moveValidation() { //wtf was this // ohhh its meant to include the placement_square to see if the movement can be performed
