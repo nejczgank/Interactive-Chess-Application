@@ -124,7 +124,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="bitwise_moves_validation.cpp" />
+    <ClCompile Include="bitwise_move_validation.cpp" />
     <ClCompile Include="display.cpp" />
     <ClCompile Include="init_game_state.cpp" />
     <ClCompile Include="App.cpp" />

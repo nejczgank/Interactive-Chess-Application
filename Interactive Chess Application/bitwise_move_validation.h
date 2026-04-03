@@ -13,7 +13,7 @@ public:
 	void callPieceTypesValidator();
 private:
 	void determinePickedPiece();
-	uint64_t universalRay(uint8_t, uint64_t);
+	uint64_t universalRay(uint64_t, uint64_t);
 	uint64_t rayHalvingHelper(uint64_t*, uint64_t*, uint64_t*);
 	uint64_t diagonalTransformation(uint64_t*);
 	uint64_t nonDiagonalTransformation(uint64_t*, uint64_t*);

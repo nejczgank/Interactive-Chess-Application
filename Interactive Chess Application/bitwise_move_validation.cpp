@@ -1,4 +1,5 @@
 //FIX DISPLAY
+//REMBER THAT ONCE THIS WORKS AND DISPLAY HAS BEEN FIXED TO PUSH IT TO THE MAIN BRANCH
 
 #include "bitwise_move_validation.h"
 
@@ -52,7 +53,7 @@ void BitwiseMoveValidation::determinePickedPiece() {
 		for (int i = 1; i <= 6; i++) {
 			if (all_boards_.*whiteBoardSelectors[i-1] & (1ULL << picked_square_idx_)) {
 				//compressed_piece_type_ += i; //this doesn't shift the bit to its adequate place
-				compressed_piece_type_ = (1ULL << i-1);
+				compressed_piece_type_ = (1ULL << (i-1));
 				allies_ = white_occupancy_;
 				enemies_ = black_occupancy_;
 				return;
@@ -73,7 +74,7 @@ void BitwiseMoveValidation::determinePickedPiece() {
 		for (int i = 1; i <= 6; i++) {
 			if (all_boards_.*blackBoardSelectors[i-1] & (1ULL << picked_square_idx_)) {
 				//compressed_piece_type_ += i + 6;
-				compressed_piece_type_ = (1ULL << i + 6 - 1);
+				compressed_piece_type_ = (1ULL << (i + 6 - 1));
 				allies_ = black_occupancy_;
 				enemies_ = white_occupancy_;
 				return;
@@ -102,10 +103,10 @@ void BitwiseMoveValidation::callPieceTypesValidator() {
 	);
 }
 
-uint64_t BitwiseMoveValidation::universalRay(uint8_t direction_bitfield, uint64_t full_ray) {
+uint64_t BitwiseMoveValidation::universalRay(uint64_t direction_bitfield, uint64_t full_ray) {
 
-	uint64_t significant_bit_truth_mask = -(direction_bitfield & 0x01);
-	uint64_t transposition_truth_mask = -(direction_bitfield >> 1 & 0x01);
+	uint64_t significant_bit_truth_mask = -(int64_t)(direction_bitfield & 0x01);
+	uint64_t transposition_truth_mask = -(int64_t)((direction_bitfield >> 1) & 0x01);
 
 	//find the appropriate half ray
 	uint64_t halved_ray = rayHalvingHelper(&significant_bit_truth_mask, &transposition_truth_mask, &full_ray);
@@ -114,27 +115,19 @@ uint64_t BitwiseMoveValidation::universalRay(uint8_t direction_bitfield, uint64_
 	//adjust ray for ally blockers
 	uint64_t ray_to_ally_blockers = findAllyBlockersHelper(&significant_bit_truth_mask, &halved_ray);
 
-	//found another issue as i fixed the ally blockers:
-	//since you cannot move in the case of a8 \>, halved_ray or ray_to_enemy_blockers overrule.
-	//while this would be completely fine in most cases, here the problem lies in the the fact there is no distinction
-	//between no possible movement defaulting to 0 and no blockers defaulting to 0
-	//write the distinction
-	uint64_t if_no_path_forward = -((halved_ray & allies_) != 0);
-
 	// if blockers are both empty then result is halved ray
 	// if only one blocker exit than that blocker is the result
 	// if both blockers exist then result is the combination of the two
-
 	uint64_t if_ray_to_enemy_blockers = -(ray_to_enemy_blockers != 0);
 	uint64_t if_ray_to_ally_blockers = -(ray_to_ally_blockers != 0);
 	uint64_t if_only_one_blocker_exists = if_ray_to_enemy_blockers ^ if_ray_to_ally_blockers;
 	uint64_t if_both_blockers_exist = if_ray_to_enemy_blockers & if_ray_to_ally_blockers;
+	uint64_t if_no_path_forward = -(((halved_ray & allies_) != 0) && if_ray_to_ally_blockers == 0);
 
-	uint64_t universal_ray =	(if_only_one_blocker_exists & ~if_no_path_forward & ray_to_enemy_blockers)					|
-								(if_only_one_blocker_exists & ~if_no_path_forward & ray_to_ally_blockers)					|
-								(if_both_blockers_exist & (ray_to_enemy_blockers & ray_to_ally_blockers)					|
-								(~if_both_blockers_exist & ~if_only_one_blocker_exists & ~if_no_path_forward & halved_ray)
-	);
+	uint64_t universal_ray =	(if_only_one_blocker_exists & ~if_no_path_forward & ray_to_enemy_blockers) |
+								(if_only_one_blocker_exists & ~if_no_path_forward & ray_to_ally_blockers)  |
+								(if_both_blockers_exist & (ray_to_enemy_blockers & ray_to_ally_blockers))  |
+								(~if_both_blockers_exist & ~if_only_one_blocker_exists & halved_ray);
 
 	return universal_ray;
 }
@@ -265,10 +258,10 @@ uint64_t BitwiseMoveValidation::queenValidation() {
 	queen_mask |= universalRay(0x0, 0x8040201008040201); //north-east
 	queen_mask |= universalRay(0x2, 0xff);				 //east
 	queen_mask |= universalRay(0x1, 0x102040810204080);  //south-east
-	queen_mask |= universalRay(0x1, 0x101010101010101);  //south		//BROKEN
-	queen_mask |= universalRay(0x1, 0x102040810204080);  //south-west	//BROKEN
+	queen_mask |= universalRay(0x1, 0x101010101010101);  //south
+	queen_mask |= universalRay(0x1, 0x8040201008040201); //south-west
 	queen_mask |= universalRay(0x3, 0xff);				 //west
-	queen_mask |= universalRay(0x0, 0x8040201008040201); //north-west	//BROKEN
+	queen_mask |= universalRay(0x0, 0x102040810204080);  //north-west
 
 	return queen_mask;
 }
