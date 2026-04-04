@@ -87,12 +87,12 @@ void BitwiseMoveValidation::callPieceTypesValidator() {
 	
 	determinePickedPiece();
 
-	uint64_t is_pawn   = -((compressed_piece_type_ & 0x1)	   | (compressed_piece_type_ >> 6 & 0x1));
-	uint64_t is_knight = -((compressed_piece_type_ >> 1 & 0x1) | (compressed_piece_type_ >> 7 & 0x1));
-	uint64_t is_rook   = -((compressed_piece_type_ >> 2 & 0x1) | (compressed_piece_type_ >> 8 & 0x1));
-	uint64_t is_bishop = -((compressed_piece_type_ >> 3 & 0x1) | (compressed_piece_type_ >> 9 & 0x1));
-	uint64_t is_queen  = -((compressed_piece_type_ >> 4 & 0x1) | (compressed_piece_type_ >> 10 & 0x1));
-	uint64_t is_king   = -((compressed_piece_type_ >> 5 & 0x1) | (compressed_piece_type_ >> 11 & 0x1));
+	uint64_t is_pawn   = -((compressed_piece_type_ & 0x1)	     | ((compressed_piece_type_ >> 6) & 0x1));
+	uint64_t is_knight = -(((compressed_piece_type_ >> 1) & 0x1) | ((compressed_piece_type_ >> 7) & 0x1));
+	uint64_t is_rook   = -(((compressed_piece_type_ >> 2) & 0x1) | ((compressed_piece_type_ >> 8) & 0x1));
+	uint64_t is_bishop = -(((compressed_piece_type_ >> 3) & 0x1) | ((compressed_piece_type_ >> 9) & 0x1));
+	uint64_t is_queen  = -(((compressed_piece_type_ >> 4) & 0x1) | ((compressed_piece_type_ >> 10) & 0x1));
+	uint64_t is_king   = -(((compressed_piece_type_ >> 5) & 0x1) | ((compressed_piece_type_ >> 11) & 0x1));
 	
 	uint64_t determine_legal_moves = ((is_pawn & pawnValidation())     |
 									  (is_knight & knightValidation()) |
@@ -201,6 +201,37 @@ uint64_t BitwiseMoveValidation::findAllyBlockersHelper(uint64_t* significant_bit
 }
 
 uint64_t BitwiseMoveValidation::pawnValidation() {
+
+	uint64_t pawnMask = 0;
+
+	uint64_t if_white = -(compressed_piece_type_ & 0x1);
+	uint64_t if_black = -((compressed_piece_type_ >> 6) & 0x1);
+
+	uint64_t determine_init_pos = (if_white & 0x1) | (if_black & 0x6);
+	uint64_t test = picked_square_idx_ / 8;
+	uint64_t if_init = -(int64_t)((picked_square_idx_ / 8) == determine_init_pos);
+
+	uint64_t determine_regular_move = (if_init & if_white & (0x101ULL << (picked_square_idx_ + 8)))		|
+									  (~if_init & if_white & (1ULL << (picked_square_idx_ + 8)))		|
+									  (if_init & if_black & ((0x101ULL << picked_square_idx_) >> 16))	|
+									  (~if_init & if_black & ((1ULL << picked_square_idx_) >> 8))
+	;
+
+	pawnMask |= determine_regular_move;
+
+	uint64_t determine_atk = (if_white & (black_occupancy_ & (1ULL << picked_square_idx_ + 7)))		| 
+							 (if_white & (black_occupancy_ & (1ULL << picked_square_idx_ + 9)))		|
+							 (if_black & (white_occupancy_ & ((1ULL << picked_square_idx_) >> 7)))	|
+							 (if_black & (white_occupancy_ & (1ULL << picked_square_idx_) >> 9))
+	;
+
+	pawnMask |= determine_atk;
+
+	//handle wrap around,
+	//handle occupancy checks for forward moving pieces
+
+	//en-passant
+
 	return 0;
 }
 
@@ -267,10 +298,27 @@ uint64_t BitwiseMoveValidation::queenValidation() {
 }
 
 uint64_t BitwiseMoveValidation::kingValidaiton() {
-	return 0;
+
+	uint64_t kingMask = 0;
+
+	uint64_t not_a_file = ~0x1010101010101010;
+	uint64_t not_h_file = ~0x8080808080808080;
+
+	kingMask |= ((1ULL << picked_square_idx_) << 8);
+	kingMask |= ((1ULL << picked_square_idx_) >> 8);
+	kingMask |= ((1ULL << picked_square_idx_) << 1) & not_a_file;
+	kingMask |= ((1ULL << picked_square_idx_) >> 1) & not_h_file;
+
+	kingMask |= (((1ULL << picked_square_idx_) << 9) & not_a_file);
+	kingMask |= (((1ULL << picked_square_idx_) << 7) & not_h_file);
+	kingMask |= (((1ULL << picked_square_idx_) >> 9) & not_h_file);
+	kingMask |= (((1ULL << picked_square_idx_) >> 7) & not_a_file);
+
+	return kingMask;
 }
 
-void BitwiseMoveValidation::moveValidation() { //wtf was this // ohhh its meant to include the placement_square to see if the movement can be performed
+void BitwiseMoveValidation::movementValidation() { //wtf was this // ohhh its meant to include the placement_square to see if the movement can be performed
+
 
 }
 

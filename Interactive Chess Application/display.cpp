@@ -45,9 +45,7 @@ void Display::constructBoard(InitGameState::Board &board) {
 
 	for (int i = 0; i < PIECE_TYPES_BOARDS; i++) {
 
-        uint64_t curr_bitboard = board.*piece_selectors[i];
-
-		for (int j = 0; j < 64; j++) {
+        uint64_t curr_bitboard = board.*piece_selectors[i];		for (int j = 0; j < 64; j++) {
 
             if (curr_bitboard == 0) {
                 break;
@@ -67,7 +65,7 @@ void Display::constructBoard(InitGameState::Board &board) {
 }
 
 void Display::addRanksFiles() {
-
+            
     int square_idx = 56;
 
     for (int i = 8; i > 0; i--) {
@@ -76,7 +74,12 @@ void Display::addRanksFiles() {
 
         for (int j = square_idx; j < (square_idx + 8); j++) {
 
-            std::cout << compressed_board_[j] << " ";
+            if (compressed_board_[j] == 0) {
+                std::cout << "  ";
+            }
+            else {
+                std::cout << compressed_board_[j] << " ";
+            }
         }
         square_idx -= 8;
         std::cout << '\n';

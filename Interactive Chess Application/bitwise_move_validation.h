@@ -25,7 +25,7 @@ private:
 	uint64_t bishopValidation();
 	uint64_t queenValidation();
 	uint64_t kingValidaiton();
-	void moveValidation();
+	void movementValidation();
 	void updateBoards();
 	void checkPositionsBoard();
 
