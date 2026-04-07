@@ -6,7 +6,7 @@
 
 class Display {
 public:
-	static void displayBoard(InitGameState::Board);
+	static void displayBoard(InitGameState::Board*);
 private:
 	static void addRanksFiles();
 	static void constructBoard(InitGameState::Board&);

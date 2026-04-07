@@ -4,23 +4,26 @@
 #include "player_input.h"
 #include "display.h"
 #include "bitwise_move_validation.h"
+#include "positional_evaluation.h"
 
 int main() {
 	//Initialize game state
 	InitGameState initBoard;
 	InitGameState::Board board = initBoard.getInitBoardState();
 
+	//Initialize validation for a given board (statics matter)
+	//BitwiseMoveValidation validateThisBoard(board);
+
 	while (true) { //Main loop
 	  //Draw board
-	  Display::displayBoard(board);
+	  Display::displayBoard(&board);
 	  //Input validation
 	  auto [picked_square_idx, placement_square_idx] = PlayerInput::moveHandling(); //obtain square indicies
 	  //Move validation
-	  BitwiseMoveValidation validateThisBoard(board, picked_square_idx, placement_square_idx);
-	  validateThisBoard.callPieceTypesValidator();
+	  //validateThisBoard.setUpdatedState(picked_square_idx, placement_square_idx);
+	  //validateThisBoard.callPieceTypesValidator();
 	}
 	
-
 	//determine outcome 
 	//clear board
 

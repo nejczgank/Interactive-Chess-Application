@@ -2,8 +2,8 @@
 
 char Display::compressed_board_[64];
 
-void Display::displayBoard(InitGameState::Board board) {
-    constructBoard(board);
+void Display::displayBoard(InitGameState::Board* board) {
+    constructBoard(*board);
     addRanksFiles();
     std::fill(compressed_board_, compressed_board_ + 64, 0); //clear state
 }

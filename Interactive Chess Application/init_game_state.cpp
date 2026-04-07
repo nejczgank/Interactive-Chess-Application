@@ -3,7 +3,7 @@
 InitGameState::InitGameState() {
 
 	//white_pawns_     = 0x000000000000FF00;
-	white_pawns_ = 0x2800ff00;
+	white_pawns_ = 0x1ff00;
 	white_knights_   = 0x0000000000000042;
 	white_rooks_     = 0x0000000000000081;
 	white_bishops_   = 0x0000000000000024;
@@ -11,7 +11,7 @@ InitGameState::InitGameState() {
 	white_king_      = 0x0000000000000010;
 
 	//black_pawns_     = 0x00FF000000000000;
-	black_pawns_ = 0xff001400000000;
+	black_pawns_ = 0xff000002800000;
 	black_knights_   = 0x4200000000000000;
 	black_rooks_     = 0x8100000000000000;
 	black_bishops_   = 0x2400000000000000;
@@ -19,9 +19,9 @@ InitGameState::InitGameState() {
 	black_king_      = 0x1000000000000000;
 
 	//white_occupancy_ = 0x000000000000FFFF;
-	white_occupancy_ = 0x2800ffff;
+	white_occupancy_ = 0x1ffff;
 	//black_occupancy_ = 0xFFFF000000000000;
-	black_occupancy_ = 0xffff001400000000;
+	black_occupancy_ = 0xffff000002800000;
 	all_occupancy_   = white_occupancy_ | black_occupancy_;
 }
 

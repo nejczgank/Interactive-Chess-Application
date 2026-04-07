@@ -3,16 +3,19 @@
 #include "init_game_state.h"
 #include <cstdint>
 #include <bit>
-
 #include "display.h"
+#include "positional_evaluation.h"
 
 class BitwiseMoveValidation {
 public:
-	BitwiseMoveValidation(InitGameState::Board&, int, int);
+	BitwiseMoveValidation(InitGameState::Board&);
 	~BitwiseMoveValidation();
+	void setUpdatedState(int, int);
 	void callPieceTypesValidator();
 private:
+	
 	void determinePickedPiece();
+	void determinePlacedPiece();
 	uint64_t universalRay(uint64_t, uint64_t);
 	uint64_t rayHalvingHelper(uint64_t*, uint64_t*, uint64_t*);
 	uint64_t diagonalTransformation(uint64_t*);
@@ -25,11 +28,12 @@ private:
 	uint64_t bishopValidation();
 	uint64_t queenValidation();
 	uint64_t kingValidaiton();
-	void movementValidation();
-	void updateBoards();
+	uint64_t movementValidation(uint64_t*);	
+	void updateBoards(uint64_t*);
+	void updateBoardsHelper(uint64_t*);
 	void checkPositionsBoard();
 
-	InitGameState::Board all_boards_;
+	InitGameState::Board* all_boards_;
 
 	uint64_t white_pawns_;
 	uint64_t white_knights_;
@@ -52,10 +56,14 @@ private:
 	int picked_square_idx_;
 	int placement_square_idx_;
 
-	uint16_t compressed_piece_type_;
+	static uint64_t InitGameState::Board::* white_selectors_[];
+	static uint64_t InitGameState::Board::* black_selectors_[];
+
+	uint16_t pkd_piece_type_;
+	uint16_t pld_piece_type_;
 
 	uint64_t allies_;
 	uint64_t enemies_;
 
-	uint64_t universal_ray_;
+	PositionalEvaluation evaluateThisBoard;
 };

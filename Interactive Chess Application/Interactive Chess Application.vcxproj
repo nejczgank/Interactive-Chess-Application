@@ -130,12 +130,14 @@
     <ClCompile Include="init_game_state.cpp" />
     <ClCompile Include="App.cpp" />
     <ClCompile Include="player_input.cpp" />
+    <ClCompile Include="positional_evaluation.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="bitwise_move_validation.h" />
     <ClInclude Include="display.h" />
     <ClInclude Include="init_game_state.h" />
     <ClInclude Include="player_input.h" />
+    <ClInclude Include="positional_evaluation.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

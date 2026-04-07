@@ -30,6 +30,9 @@
     <ClCompile Include="bitwise_move_validation.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="positional_evaluation.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="init_game_state.h">
@@ -42,6 +45,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="bitwise_move_validation.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="positional_evaluation.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
