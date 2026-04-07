@@ -12,7 +12,7 @@ int main() {
 	InitGameState::Board board = initBoard.getInitBoardState();
 
 	//Initialize validation for a given board (statics matter)
-	//BitwiseMoveValidation validateThisBoard(board);
+	BitwiseMoveValidation validateThisBoard(board);
 
 	while (true) { //Main loop
 	  //Draw board
@@ -20,10 +20,11 @@ int main() {
 	  //Input validation
 	  auto [picked_square_idx, placement_square_idx] = PlayerInput::moveHandling(); //obtain square indicies
 	  //Move validation
-	  //validateThisBoard.setUpdatedState(picked_square_idx, placement_square_idx);
-	  //validateThisBoard.callPieceTypesValidator();
+	  validateThisBoard.setUpdatedState(picked_square_idx, placement_square_idx);
+	  if (!validateThisBoard.callPieceTypesValidator()) {
+		  continue;
+	  }
 	}
-	
 	//determine outcome 
 	//clear board
 

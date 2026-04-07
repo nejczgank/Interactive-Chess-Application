@@ -7,6 +7,7 @@
 class PlayerInput {
 public:
 	static std::tuple<int, int> moveHandling();
+	static void outOfScope();
 private:
 	static std::tuple<std::string, std::string> getInput();
 	static bool validateInput(std::string&, std::string&, std::string&);

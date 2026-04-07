@@ -7,6 +7,11 @@
 	return { convertToSquareIndex(picked_square), convertToSquareIndex(placement_square) };
  }
 
+ void PlayerInput::outOfScope() {
+	 std::cout << "invalid move. placement outside of scope. Try again\n";
+	 return;
+ }
+
 std::tuple<std::string, std::string> PlayerInput::getInput() {
 	
 	std::string format;

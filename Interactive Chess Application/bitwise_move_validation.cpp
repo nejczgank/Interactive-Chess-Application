@@ -2,6 +2,8 @@
 
 enum class Piece
 {
+	none = (uint64_t)0,
+
 	white_pawn	 = 1ULL << 0,
 	white_knight = 1ULL << 1,
 	white_rook   = 1ULL << 2,
@@ -35,10 +37,25 @@ uint64_t InitGameState::Board::* BitwiseMoveValidation::black_selectors_[]{
 	&InitGameState::Board::black_king,
 };
 
-BitwiseMoveValidation::BitwiseMoveValidation(InitGameState::Board& all_boards) {
-
-	//Initalize positional evaluation for this board for later heuristic AI use
-	PositionalEvaluation evaluateThisBoard();
+BitwiseMoveValidation::BitwiseMoveValidation(InitGameState::Board& all_boards) : 
+	all_boards_(&all_boards),
+	white_pawns_(all_boards.white_pawns),
+	white_knights_(all_boards.white_knights),
+	white_rooks_(all_boards.white_rooks),
+	white_bishops_(all_boards.white_bishops),
+	white_queens_(all_boards.white_queens),
+	white_king_(all_boards.white_king),
+	black_pawns_(all_boards.black_pawns),
+	black_knights_(all_boards.black_knights),
+	black_rooks_(all_boards.black_rooks),
+	black_bishops_(all_boards.black_bishops),
+	black_queens_(all_boards.black_queens),
+	black_king_(all_boards.black_king),
+	white_occupancy_(all_boards.white_occupancy),
+	black_occupancy_(all_boards.black_occupancy),
+	all_occupancy_(all_boards.all_occupancy),
+	evaluateThisBoard{}
+{ //initializer list
 
 	all_boards_ = &all_boards;
 
@@ -81,7 +98,7 @@ void BitwiseMoveValidation::determinePickedPiece() {
 
 	if ((white_occupancy_ & (1ULL << picked_square_idx_)) != 0) {
 		for (int i = 0; i < 6; i++) {
-			if (all_boards_.*white_selectors_[i] & (1ULL << picked_square_idx_)) {
+			if (*all_boards_.*white_selectors_[i] & (1ULL << picked_square_idx_)) {
 				pkd_piece_type_ = (1ULL << i);
 				allies_ = white_occupancy_;
 				enemies_ = black_occupancy_;
@@ -92,7 +109,7 @@ void BitwiseMoveValidation::determinePickedPiece() {
 
 	if ((black_occupancy_ & (1ULL << picked_square_idx_)) != 0) {
 		for (int i = 0; i < 6; i++) {
-			if (all_boards_.*black_selectors_[i] & (1ULL << picked_square_idx_)) {
+			if (*all_boards_.*black_selectors_[i] & (1ULL << picked_square_idx_)) {
 				pkd_piece_type_ = (1ULL << (i + 6));
 				allies_ = black_occupancy_;
 				enemies_ = white_occupancy_;
@@ -107,7 +124,7 @@ void BitwiseMoveValidation::determinePlacedPiece() {
 
 	if ((white_occupancy_ & (1ULL << placement_square_idx_)) != 0) {
 		for (int i = 0; i < 6; i++) {
-			if (all_boards_.*white_selectors_[i] & (1ULL << placement_square_idx_)) {
+			if (*all_boards_.*white_selectors_[i] & (1ULL << placement_square_idx_)) {
 				pld_piece_type_ = (1ULL << i);
 				return;
 			}
@@ -116,7 +133,7 @@ void BitwiseMoveValidation::determinePlacedPiece() {
 
 	if ((black_occupancy_ & (1ULL << placement_square_idx_)) != 0) {
 		for (int i = 0; i < 6; i++) {
-			if (all_boards_.*black_selectors_[i] & (1ULL << placement_square_idx_)) {
+			if (*all_boards_.*black_selectors_[i] & (1ULL << placement_square_idx_)) {
 				pld_piece_type_ = (1ULL << (i + 6));
 				return;
 			}
@@ -124,7 +141,7 @@ void BitwiseMoveValidation::determinePlacedPiece() {
 	}
 }
 
-void BitwiseMoveValidation::callPieceTypesValidator() {
+bool BitwiseMoveValidation::callPieceTypesValidator() {
 	
 	determinePickedPiece();
 
@@ -163,11 +180,13 @@ void BitwiseMoveValidation::callPieceTypesValidator() {
 
 	uint64_t piece_placement = movementValidation(&valid_moves);
 	if (piece_placement == 0) {
-		return;
+		PlayerInput::outOfScope();
+		return false;
 	}
 
 	updateBoards(&piece_placement);
 
+	return true;
 	//if validMoves = 0, then return 0 and let the external logic handle an invalid placement
 }
 
@@ -404,6 +423,9 @@ void BitwiseMoveValidation::updateBoards(uint64_t* piece_placement) {
 	//pld_piece_type_ will give me the exact piece type being captured, if any
 
 	switch (static_cast<Piece>(pld_piece_type_)) {
+	case Piece::none:
+		updateBoardsHelper(piece_placement);
+		break;
 	case Piece::white_pawn:
 		evaluateThisBoard.materialCount(1, 0);
 		//clear the value from the pld color board
