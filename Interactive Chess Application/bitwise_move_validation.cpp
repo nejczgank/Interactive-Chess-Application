@@ -1,24 +1,5 @@
 #include "bitwise_move_validation.h"
 
-enum class Piece
-{
-	none = (uint64_t)0,
-
-	white_pawn	 = 1ULL << 0,
-	white_knight = 1ULL << 1,
-	white_rook   = 1ULL << 2,
-	white_bishop = 1ULL << 3,
-	white_queen  = 1ULL << 4,
-	white_king   = 1ULL << 5,
-	
-	black_pawn   = 1ULL << 6,
-	black_knight = 1ULL << 7,
-	black_rook   = 1ULL << 8,
-	black_bishop = 1ULL << 9,
-	black_queen  = 1ULL << 10,
-	black_king   = 1ULL << 11
-};
-
 uint64_t InitGameState::Board::* BitwiseMoveValidation::white_selectors_[]
 {
 	&InitGameState::Board::white_pawns,
@@ -85,8 +66,8 @@ BitwiseMoveValidation::BitwiseMoveValidation(InitGameState::Board& all_boards) :
 	picked_square_idx_ = 0;
 	placement_square_idx_ = 0;
 
-	pkd_piece_type_ = 0;
-	pld_piece_type_ = 0;
+	picked_piece_type_ = 0;
+	placed_piece_type_ = 0;
 	allies_ = 0;
 	enemies_ = 0;
 }
@@ -103,7 +84,7 @@ void BitwiseMoveValidation::determinePickedPiece()
 	if ((white_occupancy_ & (1ULL << picked_square_idx_)) != 0) {
 		for (int i = 0; i < 6; i++) {
 			if (*all_boards_.*white_selectors_[i] & (1ULL << picked_square_idx_)) {
-				pkd_piece_type_ = (1ULL << i);
+				picked_piece_type_ = (1ULL << i);
 				allies_ = white_occupancy_;
 				enemies_ = black_occupancy_;
 				return;
@@ -114,7 +95,7 @@ void BitwiseMoveValidation::determinePickedPiece()
 	if ((black_occupancy_ & (1ULL << picked_square_idx_)) != 0) {
 		for (int i = 0; i < 6; i++) {
 			if (*all_boards_.*black_selectors_[i] & (1ULL << picked_square_idx_)) {
-				pkd_piece_type_ = (1ULL << (i + 6));
+				picked_piece_type_ = (1ULL << (i + 6));
 				allies_ = black_occupancy_;
 				enemies_ = white_occupancy_;
 				return;
@@ -129,7 +110,7 @@ void BitwiseMoveValidation::determinePlacedPiece()
 	if ((white_occupancy_ & (1ULL << placement_square_idx_)) != 0) {
 		for (int i = 0; i < 6; i++) {
 			if (*all_boards_.*white_selectors_[i] & (1ULL << placement_square_idx_)) {
-				pld_piece_type_ = (1ULL << i);
+				placed_piece_type_ = (1ULL << i);
 				return;
 			}
 		}
@@ -138,7 +119,7 @@ void BitwiseMoveValidation::determinePlacedPiece()
 	if ((black_occupancy_ & (1ULL << placement_square_idx_)) != 0) {
 		for (int i = 0; i < 6; i++) {
 			if (*all_boards_.*black_selectors_[i] & (1ULL << placement_square_idx_)) {
-				pld_piece_type_ = (1ULL << (i + 6));
+				placed_piece_type_ = (1ULL << (i + 6));
 				return;
 			}
 		}
@@ -149,9 +130,9 @@ bool BitwiseMoveValidation::callPieceTypesValidator()
 {
 	determinePickedPiece();
 
-	uint64_t if_pawn = -(0x1 & pkd_piece_type_);
-	int pkd_piece_idx = (int)((if_pawn & 0x0) | (~if_pawn & std::countr_zero(pkd_piece_type_)));
-	pkd_piece_idx = pkd_piece_idx % 6;
+	uint64_t if_pawn = -(0x1 & picked_piece_type_);
+	int picked_piece_idx = (int)((if_pawn & 0x0) | (~if_pawn & std::countr_zero(picked_piece_type_)));
+	picked_piece_idx = picked_piece_idx % 6;
 
 	//array of member function pointers
 	static uint64_t(BitwiseMoveValidation::*jumpTable[])() = {
@@ -165,9 +146,9 @@ bool BitwiseMoveValidation::callPieceTypesValidator()
 
 	uint64_t valid_moves = 0;
 
-	if (pkd_piece_idx < 6 && pkd_piece_idx >= 0) {
+	if (picked_piece_idx < 6 && picked_piece_idx >= 0) {
 		//this for running the current instance of BitwiseMoveValidation
-		valid_moves = (this->*jumpTable[pkd_piece_idx])();
+		valid_moves = (this->*jumpTable[picked_piece_idx])();
 	}
 
 	determinePlacedPiece();
@@ -218,8 +199,15 @@ uint64_t BitwiseMoveValidation::rayHalvingHelper(uint64_t* significant_bit_truth
 	uint64_t if_significant_bit_mask = -(int64_t)(*significant_bit_truth_mask == 0);
 	uint64_t if_diagonal = -((*full_ray == 0x102040810204080) | (*full_ray == 0x8040201008040201));
 
+	uint64_t determined_transposed_ray = 0;
 	//replace this with a switch, if, lookup table maybe? just don't let it execute two functions like that
-	uint64_t determined_transposed_ray = (if_diagonal & (diagonalTransformation(full_ray))) | (~if_diagonal & (nonDiagonalTransformation(transposition_truth_mask, full_ray)));
+	if (*full_ray == 0x102040810204080) {
+		determined_transposed_ray = diagonalTransformation(full_ray);
+	}
+	else if (*full_ray == 0x8040201008040201) {
+		determined_transposed_ray = nonDiagonalTransformation(transposition_truth_mask, full_ray);
+	}
+
 	uint64_t determined_halving = (if_significant_bit_mask & ~((1ULL << (picked_square_idx_ + 1)) - 1)) | (~if_significant_bit_mask & ((1ULL << picked_square_idx_) - 1));
 
 	return determined_transposed_ray & determined_halving;
@@ -287,8 +275,8 @@ uint64_t BitwiseMoveValidation::pawnValidation()
 {
 	uint64_t pawnMask = 0;
 
-	uint64_t if_white = -(pkd_piece_type_ & 0x1); //1st one because it's a pawn
-	uint64_t if_black = -((pkd_piece_type_ >> 6) & 0x1); //7th one because it's a pawn
+	uint64_t if_white = -(picked_piece_type_ & 0x1); //1st one because it's a pawn
+	uint64_t if_black = -((picked_piece_type_ >> 6) & 0x1); //7th one because it's a pawn
 
 	uint64_t determine_init_pos = (if_white & 0x1) | (if_black & 0x6);
 	uint64_t test = picked_square_idx_ / 8;
@@ -416,221 +404,66 @@ uint64_t BitwiseMoveValidation::movementValidation(uint64_t* found_moves)
 void BitwiseMoveValidation::updateBoards(uint64_t* piece_placement) 
 {
 	//piece_placement will give me the board where the piece is supposed to be
-	//pld_piece_type_ will give me the exact piece type being captured, if any
+	//placed_piece_type_ will give me the exact piece type being captured, if any
 
-	int color = ((0x3f & pld_piece_type_) == 0 ? 0 : 1);
-	int opposite_color = ((0x7c0 & pld_piece_type_) == 0 ? 0 : 1);
+	//PLACED_PIECE_TYPE_ IS 0 BECAUSE THERE IS NO PIECE TO OVERTAKE, THIS IS CAUSING THE ISSUE
 
-	uint64_t if_pawn = -(0x1 & pld_piece_type_);
-	int pld_piece_idx = (int)((if_pawn & 0x0) | (~if_pawn & std::countr_zero(pld_piece_type_)));
+	int color = ((0x3f & placed_piece_type_) == 0 ? 0 : 1);
+	int opposite_color = ((0x7c0 & placed_piece_type_) == 0 ? 0 : 1);
 
-	updateBoardsGenericHelper(piece_placement, pld_piece_idx, color, opposite_color);
+	uint64_t if_pawn = -(0x1 & placed_piece_type_);
+	int placed_piece_idx = (int)((if_pawn & 0x0) | (~if_pawn & std::countr_zero(placed_piece_type_)));
 
-	color = ((0x3f & pkd_piece_type_) == 0 ? 0 : 1);
-	opposite_color = ((0x7c0 & pkd_piece_type_) == 0 ? 0 : 1);
+	clearPieceHelper(piece_placement, placed_piece_idx, color, opposite_color);
 
-	if_pawn = -(0x1 & pkd_piece_type_);
-	int pkd_piece_idx = (int)((if_pawn & 0x0) | (~if_pawn & std::countr_zero(pkd_piece_type_)));
+	color = ((0x3f & picked_piece_type_) == 0 ? 0 : 1);
+	opposite_color = ((0x7c0 & picked_piece_type_) == 0 ? 0 : 1);
 
-	updateBoardsHelper(piece_placement, pkd_piece_idx, color, opposite_color);
+	if_pawn = -(0x1 & picked_piece_type_);
+	int picked_piece_idx = (int)((if_pawn & 0x0) | (~if_pawn & std::countr_zero(picked_piece_type_)));
 
-	//switch (static_cast<Piece>(pld_piece_type_)) {
-	//case Piece::none:
-	//	updateBoardsHelper(piece_placement);
-	//	break;
-	//case Piece::white_pawn:
-	//	evaluateThisBoard.materialCount(1, 0);
-	//	//clear the value from the pld color board
-	//	white_occupancy_ &= ~*piece_placement; //white_occupancy_ = white_occupancy_ & ~*piece_placement;
-	//	//clear the value from the specific pld figure board
-	//	white_pawns_ &= ~*piece_placement;
-	//	//set the newly occupied value for the pld color board
-	//	black_occupancy_ |= *piece_placement;
-	//	//switch case that handles the pkd value clearning and all occupancy clearing
-	//	updateBoardsHelper(piece_placement);
-	//	break;
-	//case Piece::black_pawn:
-	//	evaluateThisBoard.materialCount(0, 1);
-	//	black_occupancy_ &= ~*piece_placement;
-	//	black_pawns_ &= ~*piece_placement;
-	//	white_occupancy_ |= *piece_placement;
-	//	updateBoardsHelper(piece_placement);
-	//	break;
-	//case Piece::white_knight:
-	//	evaluateThisBoard.materialCount(3, 0);
-	//	white_occupancy_ &= ~*piece_placement;
-	//	white_knights_ &= ~*piece_placement;
-	//	black_occupancy_ |= *piece_placement;
-	//	updateBoardsHelper(piece_placement);
-	//	break;
-	//case Piece::black_knight:
-	//	evaluateThisBoard.materialCount(0, 3);
-	//	black_occupancy_ &= ~*piece_placement;
-	//	black_knights_ &= ~*piece_placement;
-	//	white_occupancy_ |= *piece_placement;
-	//	updateBoardsHelper(piece_placement);
-	//	break;
-	//case Piece::white_rook:
-	//	evaluateThisBoard.materialCount(5, 0);
-	//	white_occupancy_ &= ~*piece_placement;
-	//	white_knights_ &= ~*piece_placement;
-	//	black_occupancy_ |= *piece_placement;
-	//	updateBoardsHelper(piece_placement);
-	//	break;
-	//case Piece::black_rook:
-	//	evaluateThisBoard.materialCount(0, 5);
-	//	black_occupancy_ &= ~*piece_placement;
-	//	black_rooks_ &= ~*piece_placement;
-	//	white_occupancy_ |= *piece_placement;
-	//	updateBoardsHelper(piece_placement);
-	//	break;
-	//case Piece::white_bishop:
-	//	evaluateThisBoard.materialCount(3, 0);
-	//	white_occupancy_ &= ~*piece_placement;
-	//	white_bishops_ &= ~*piece_placement;
-	//	black_occupancy_ |= *piece_placement;
-	//	updateBoardsHelper(piece_placement);
-	//	break;
-	//case Piece::black_bishop:
-	//	evaluateThisBoard.materialCount(0, 3);
-	//	black_occupancy_ &= ~*piece_placement;
-	//	black_bishops_ &= ~*piece_placement;
-	//	white_occupancy_ |= *piece_placement;
-	//	updateBoardsHelper(piece_placement);
-	//	break;
-	//case Piece::white_queen:
-	//	evaluateThisBoard.materialCount(9, 0);
-	//	white_occupancy_ &= ~*piece_placement;
-	//	white_queens_ &= ~*piece_placement;
-	//	black_occupancy_ |= *piece_placement;
-	//	updateBoardsHelper(piece_placement);
-	//	break;
-	//case Piece::black_queen:
-	//	evaluateThisBoard.materialCount(0, 9);
-	//	black_occupancy_ &= ~*piece_placement;
-	//	black_queens_ &= ~*piece_placement;
-	//	white_occupancy_ |= *piece_placement;
-	//	updateBoardsHelper(piece_placement);
-	//	break;
-	//case Piece::white_king:
-	//	break;
-	//case Piece::black_king:
-	//	break;
-	//}
+	placeNewPieceHelper(piece_placement, picked_piece_idx, color, opposite_color);
+
 }
 
-void BitwiseMoveValidation::updateBoardsGenericHelper(uint64_t* piece_placement, int pld_piece_idx, int color, int opposite_color)
+void BitwiseMoveValidation::clearPieceHelper(uint64_t* piece_placement, int placed_piece_idx, int color, int opposite_color)
 {
-	if (*piece_placement == 0) {
+	if (piece_placement == 0) {
 		return;
 	}
 	
 	//attributing the correct amount of points
 	int materialCounts[] = { 1, 3, 3, 5, 9, 0 }; //validate this is correct //king evaluation will have to be dynamic later on based on the state of the game
-	const int piece_value = pld_piece_idx % 6;
+	const int piece_value = placed_piece_idx % 6;
 
 	evaluateThisBoard.materialCount(color * materialCounts[piece_value], opposite_color * materialCounts[piece_value]);
 
 	//white/black occupancy
-	//clear the value from the pld color board
+	//clear the value from the placed color board
 	*all_boards_.*color_selectors_[color] &= ~*piece_placement;
 
 	//specific figure
-	//clear the value from the specific pld figure board
-	*all_boards_.*all_selectors_[pld_piece_idx] &= ~*piece_placement;
+	//clear the value from the specific placed figure board
+	*all_boards_.*all_selectors_[placed_piece_idx] &= ~*piece_placement;
 
 	//white/black occupancy (opposite)
-	//set the newly occupied value for the pld color board
+	//set the newly occupied value for the placed color board
 	*all_boards_.*color_selectors_[opposite_color] |= *piece_placement;
 }
 
-void BitwiseMoveValidation::updateBoardsHelper(uint64_t* piece_placement, int pkd_piece_idx, int color, int opposite_color)
+void BitwiseMoveValidation::placeNewPieceHelper(uint64_t* piece_placement, int picked_piece_idx, int color, int opposite_color)
 {
-	//set the newly occupied value for the pld figure board
-	*all_boards_.*all_selectors_[pkd_piece_idx] |= *piece_placement;
-	//clear the value from the pkd color board
+	//set the newly occupied value for the placed figure board
+	*all_boards_.*all_selectors_[picked_piece_idx] |= *piece_placement;
+	//clear the value from the picked color board
 	*all_boards_.*color_selectors_[color] &= ~(1ULL << picked_square_idx_);
 	//clear the value from the pdk figure board
-	*all_boards_.*all_selectors_[pkd_piece_idx] &= ~(1ULL << picked_square_idx_);
+	*all_boards_.*all_selectors_[picked_piece_idx] &= ~(1ULL << picked_square_idx_);
 	//clear the pdk value from the all occupancy board
 	all_occupancy_ &= ~(1ULL << picked_square_idx_);
 	//update allies and enemies
 	allies_ = *all_boards_.*color_selectors_[color];
 	enemies_ = *all_boards_.*color_selectors_[opposite_color];
-	
-	//switch (static_cast<Piece>(pkd_piece_type_)) {
-	//case Piece::white_pawn:
-	//	white_pawns_ |= *piece_placement;
-	//	white_occupancy_ &= ~(1ULL << picked_square_idx_);
-	//	white_pawns_ &= ~(1ULL << picked_square_idx_);
-	//	all_occupancy_ &= ~(1ULL << picked_square_idx_);
-	//	allies_ = white_occupancy_;
-	//	enemies_ = black_occupancy_;
-	//	break;
-	//case Piece::black_pawn:
-	//	//set the newly occupied value for the pld figure board
-	//	black_pawns_ |= *piece_placement;
-	//	//clear the value from the pkd color board
-	//	black_occupancy_ &= ~(1ULL << picked_square_idx_);
-	//	//clear the value from the pdk figure board
-	//	black_pawns_ &= ~(1ULL << picked_square_idx_);
-	//	//clear the pdk value from the all occupancy board
-	//	all_occupancy_ &= ~(1ULL << picked_square_idx_);
-	//	allies_ = white_occupancy_;
-	//	break;
-	//case Piece::white_knight:
-	//	white_knights_ |= *piece_placement;
-	//	white_occupancy_ &= ~(1ULL << picked_square_idx_);
-	//	white_knights_ &= ~(1ULL << picked_square_idx_);
-	//	all_occupancy_ &= ~(1ULL << picked_square_idx_);
-	//	break;
-	//case Piece::black_knight:
-	//	black_knights_ |= *piece_placement;
-	//	black_occupancy_ &= ~(1ULL << picked_square_idx_);
-	//	black_knights_ &= ~(1ULL << picked_square_idx_);
-	//	all_occupancy_ &= ~(1ULL << picked_square_idx_);
-	//	break;
-	//case Piece::white_rook:
-	//	white_rooks_ |= *piece_placement;
-	//	white_occupancy_ &= ~(1ULL << picked_square_idx_);
-	//	white_rooks_ &= ~(1ULL << picked_square_idx_);
-	//	all_occupancy_ &= ~(1ULL << picked_square_idx_);
-	//	break;
-	//case Piece::black_rook:
-	//	black_rooks_ |= *piece_placement;
-	//	black_occupancy_ &= ~picked_square_idx_;
-	//	black_rooks_ &= ~picked_square_idx_;
-	//	all_occupancy_ &= ~picked_square_idx_;
-	//	break;
-	//case Piece::white_bishop:
-	//	white_bishops_ |= *piece_placement;
-	//	white_occupancy_ &= ~(1ULL << picked_square_idx_);
-	//	white_bishops_ &= ~(1ULL << picked_square_idx_);
-	//	all_occupancy_ &= ~(1ULL << picked_square_idx_);
-	//	break;
-	//case Piece::black_bishop:
-	//	black_bishops_ |= *piece_placement;
-	//	black_occupancy_ &= ~(1ULL << picked_square_idx_);
-	//	black_bishops_ &= ~(1ULL << picked_square_idx_);
-	//	all_occupancy_ &= ~(1ULL << picked_square_idx_);
-	//	break;
-	//case Piece::white_queen:
-	//	white_queens_ |= *piece_placement;
-	//	white_occupancy_ &= ~(1ULL << picked_square_idx_);
-	//	white_queens_ &= ~(1ULL << picked_square_idx_);
-	//	all_occupancy_ &= ~(1ULL << picked_square_idx_);
-	//	break;
-	//case Piece::black_queen:
-	//	black_queens_ |= *piece_placement;
-	//	black_occupancy_ &= ~(1ULL << picked_square_idx_);
-	//	black_queens_ &= ~(1ULL << picked_square_idx_);
-	//	all_occupancy_ &= ~(1ULL << picked_square_idx_);
-	//	break;
-	//case Piece::white_king:
-	//	break;
-	//case Piece::black_king:
-	//	break;
-	//}
 }
 
 void BitwiseMoveValidation::checkPositionsBoard() {}
@@ -647,6 +480,5 @@ void BitwiseMoveValidation::checkPositionsBoard() {}
 //castling
 //stalemate
 //draws
-
 
 BitwiseMoveValidation::~BitwiseMoveValidation() = default;

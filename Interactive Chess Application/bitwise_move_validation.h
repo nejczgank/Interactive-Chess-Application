@@ -30,8 +30,8 @@ private:
 	uint64_t kingValidation();
 	uint64_t movementValidation(uint64_t*);	
 	void updateBoards(uint64_t*);
-	void updateBoardsGenericHelper(uint64_t*, int, int, int);
-	void updateBoardsHelper(uint64_t*, int, int, int);
+	void clearPieceHelper(uint64_t*, int, int, int);
+	void placeNewPieceHelper(uint64_t*, int, int, int);
 	void checkPositionsBoard();
 
 	//using an object pointer so the code can persist outside
@@ -63,8 +63,8 @@ private:
 	static uint64_t InitGameState::Board::* all_selectors_[];
 	static uint64_t InitGameState::Board::* color_selectors_[];
 
-	uint16_t pkd_piece_type_;
-	uint16_t pld_piece_type_;
+	uint16_t picked_piece_type_;
+	uint16_t placed_piece_type_;
 
 	uint64_t allies_;
 	uint64_t enemies_;
