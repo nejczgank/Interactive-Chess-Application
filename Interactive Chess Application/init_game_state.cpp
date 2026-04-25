@@ -18,10 +18,8 @@ InitGameState::InitGameState() {
 	black_queens_    = 0x0800000000000000;
 	black_king_      = 0x1000000000000000;
 
-	//white_occupancy_ = 0x000000000000FFFF;
-	white_occupancy_ = 0x1ffff;
-	//black_occupancy_ = 0xFFFF000000000000;
-	black_occupancy_ = 0xffff000002800000;
+	white_occupancy_ = white_pawns_ | white_knights_ | white_rooks_ | white_bishops_ | white_queens_ | white_king_;
+	black_occupancy_ = black_pawns_ | black_knights_ | black_rooks_ | black_bishops_ | black_queens_ | black_king_;
 	all_occupancy_   = white_occupancy_ | black_occupancy_;
 }
 
@@ -29,23 +27,22 @@ InitGameState::Board InitGameState::getInitBoardState() const {
 
 	Board board;
 
-	board.white_pawns = white_pawns_;
-	board.white_knights = white_knights_;
-	board.white_rooks = white_rooks_;
-	board.white_bishops = white_bishops_;
-	board.white_queens = white_queens_;
-	board.white_king = white_king_;
+	board.pieces[0] = white_pawns_;
+	board. pieces[1] = white_knights_;
+	board.pieces[2] = white_rooks_;
+	board.pieces[3] = white_bishops_;
+	board.pieces[4] = white_queens_;
+	board.pieces[5] = white_king_;
+	board.pieces[6] = black_pawns_;
+	board.pieces[7] = black_knights_;
+	board.pieces[8] = black_rooks_;
+	board.pieces[9] = black_bishops_;
+	board.pieces[10] = black_queens_;
+	board.pieces[11] = black_king_;
 
-	board.black_pawns = black_pawns_;
-	board.black_knights = black_knights_;
-	board.black_rooks = black_rooks_;
-	board.black_bishops = black_bishops_;
-	board.black_queens = black_queens_;
-	board.black_king = black_king_;
-
-	board.white_occupancy = white_occupancy_;
-	board.black_occupancy = black_occupancy_;
-	board.all_occupancy = white_occupancy_ | black_occupancy_;
+	board.occupancy[0] = white_occupancy_;
+	board.occupancy[1] = black_occupancy_;
+	board.occupancy[2] = white_occupancy_ | black_occupancy_;
 
 	return board;
 }

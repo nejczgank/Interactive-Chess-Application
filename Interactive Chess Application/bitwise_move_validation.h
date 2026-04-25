@@ -30,41 +30,20 @@ private:
 	uint64_t kingValidation();
 	uint64_t movementValidation(uint64_t*);	
 	void updateBoards(uint64_t*);
-	void clearPieceHelper(uint64_t*, int, int, int);
-	void placeNewPieceHelper(uint64_t*, int, int, int);
-	void checkPositionsBoard();
+	void clearPickedPieceHelper(int);
+	void clearNewSpotHelper(uint64_t*, int, int);
+	void placeNewPieceHelper(uint64_t*, int, int);
 
 	//using an object pointer so the code can persist outside
 	InitGameState::Board* all_boards_;
-
-	uint64_t &white_pawns_;
-	uint64_t &white_knights_;
-	uint64_t &white_rooks_;
-	uint64_t &white_bishops_;
-	uint64_t &white_queens_;
-	uint64_t &white_king_;
-
-	uint64_t &black_pawns_;
-	uint64_t &black_knights_;
-	uint64_t &black_rooks_;
-	uint64_t &black_bishops_;
-	uint64_t &black_queens_;
-	uint64_t &black_king_;
-
-	uint64_t &white_occupancy_;
-	uint64_t &black_occupancy_;
-	uint64_t &all_occupancy_;
+	uint64_t* p_;
+	uint64_t* occ_;
 
 	int picked_square_idx_;
 	int placement_square_idx_;
 
-	static uint64_t InitGameState::Board::* white_selectors_[];
-	static uint64_t InitGameState::Board::* black_selectors_[];
-	static uint64_t InitGameState::Board::* all_selectors_[];
-	static uint64_t InitGameState::Board::* color_selectors_[];
-
-	uint16_t picked_piece_type_;
-	uint16_t placed_piece_type_;
+	int picked_piece_type_;
+	int placed_piece_type_;
 
 	uint64_t allies_;
 	uint64_t enemies_;

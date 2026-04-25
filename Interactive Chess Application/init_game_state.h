@@ -7,9 +7,8 @@ class InitGameState
 public:
 	struct Board
 	{
-		uint64_t white_occupancy, black_occupancy, all_occupancy,
-			white_pawns, white_knights, white_rooks, white_bishops, white_queens, white_king,
-			black_pawns, black_knights, black_rooks, black_bishops, black_queens, black_king;
+		uint64_t pieces[12]; //all pieces
+		uint64_t occupancy[3]; //white, black, and all pieces
 	};
 	InitGameState();
 	Board getInitBoardState() const;

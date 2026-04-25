@@ -18,7 +18,7 @@ int main() {
 	  //Draw board
 	  Display::displayBoard(&board);
 	  //Input validation
-	  auto [picked_square_idx, placement_square_idx] = PlayerInput::moveHandling(); //obtain square indicies
+	  auto [picked_square_idx, placement_square_idx] = PlayerInput::moveHandling(); //obtain square indices
 	  //Move validation
 	  validateThisBoard.setUpdatedState(picked_square_idx, placement_square_idx);
 	  if (!validateThisBoard.callPieceTypesValidator()) {

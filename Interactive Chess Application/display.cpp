@@ -27,26 +27,12 @@ void Display::constructBoard(InitGameState::Board &board) {
         {11, 'K'},
     };
     
-    //member data pointer for generic access of boards
-    uint64_t InitGameState::Board::* piece_selectors[] = {
-            &InitGameState::Board::white_pawns,
-            &InitGameState::Board::white_knights,
-            &InitGameState::Board::white_rooks,
-            &InitGameState::Board::white_bishops,
-            &InitGameState::Board::white_queens,
-            &InitGameState::Board::white_king,
-            &InitGameState::Board::black_pawns,
-            &InitGameState::Board::black_knights,
-            &InitGameState::Board::black_rooks,
-            &InitGameState::Board::black_bishops,
-            &InitGameState::Board::black_queens,
-            &InitGameState::Board::black_king
-    };
+	for (int i = 0; i < PIECE_TYPES_BOARDS; i++)
+    {
+        uint64_t curr_bitboard = board.pieces[i];
 
-	for (int i = 0; i < PIECE_TYPES_BOARDS; i++) {
-
-        uint64_t curr_bitboard = board.*piece_selectors[i];		for (int j = 0; j < 64; j++) {
-
+        for (int j = 0; j < 64; j++) 
+        {
             if (curr_bitboard == 0) {
                 break;
             }
@@ -68,16 +54,20 @@ void Display::addRanksFiles() {
             
     int square_idx = 56;
 
-    for (int i = 8; i > 0; i--) {
+    for (int i = 8; i > 0; i--) 
+    {
 
         std::cout << i << "   ";
 
-        for (int j = square_idx; j < (square_idx + 8); j++) {
+        for (int j = square_idx; j < (square_idx + 8); j++)
+        {
 
-            if (compressed_board_[j] == 0) {
+            if (compressed_board_[j] == 0) 
+            {
                 std::cout << "  ";
             }
-            else {
+            else 
+            {
                 std::cout << compressed_board_[j] << " ";
             }
         }
@@ -88,7 +78,8 @@ void Display::addRanksFiles() {
     char file = 'a';
 
     std::cout << "\n    ";
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 8; i++)
+    {
         std::cout << file++ << " ";
     }
 
