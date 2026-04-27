@@ -14,6 +14,7 @@ public:
 	void setUpdatedState(int, int);
 	bool callPieceTypesValidator();
 private:
+	void getMovementInfo(int);
 	void determinePickedPiece();
 	void determinePlacedPiece();
 	uint64_t universalRay(uint64_t, uint64_t);

@@ -21,9 +21,14 @@ namespace OCC {
 	constexpr int ALL_OCC = 2;
 }
 
+namespace moveInfo {
+	using Type = int;
+	constexpr int picked = 0;
+	constexpr int placed = 1;
+}
+
 BitwiseMoveValidation::BitwiseMoveValidation(InitGameState::Board& all_boards) :
 	//initializer list
-	//makes it so I don't have to use all_boards_-> for every subsequent board call
 	all_boards_(&all_boards),
 	p_(all_boards_->pieces),
 	occ_(all_boards_->occupancy),
@@ -44,59 +49,85 @@ void BitwiseMoveValidation::setUpdatedState(int picked_square_idx, int placement
 	placement_square_idx_ = placement_square_idx;
 }
 
-void BitwiseMoveValidation::determinePickedPiece()
+void BitwiseMoveValidation::getMovementInfo(moveInfo::Type flag)
 {
-	//find the picked piece
-	if ((occ_[OCC::W_OCC] & (1ULL << picked_square_idx_)) != 0) {
-		for (int i = 0; i < 6; i++) {
-			if (p_[i] & (1ULL << picked_square_idx_)) {
-				picked_piece_type_ = i;
-				allies_ = occ_[OCC::W_OCC];
-				enemies_ = occ_[OCC::B_OCC];
-				return;
-			}
-		}
-	}
+	int* lookupIdx[] = {&picked_square_idx_, &placement_square_idx_};
+	int* movementPointer = lookupIdx[flag];
 
-	if ((occ_[OCC::B_OCC] & (1ULL << picked_square_idx_)) != 0) {
-		for (int i = 6; i < 12; i++) {
-			if (p_[i] & (1ULL << picked_square_idx_)) {
-				picked_piece_type_ = i;
-				allies_ = occ_[OCC::B_OCC];
-				enemies_ = occ_[OCC::W_OCC];
-				return;
-			}
-		}
-	}
-}
+	int color = ((occ_[OCC::W_OCC] & (1ULL << *movementPointer)) != 0) ? 0 : 1;
+	const int correction = 6 * color;
 
-void BitwiseMoveValidation::determinePlacedPiece()
-{
-	//find the placed square
-	if ((occ_[OCC::W_OCC] & (1ULL << placement_square_idx_)) != 0) {
-		for (int i = 0; i < 6; i++) {
-			if (p_[i] & (1ULL << placement_square_idx_)) {
-				placed_piece_type_ = i;
-				return;
-			}
-		}
-	}
-
-	if ((occ_[OCC::B_OCC] & (1ULL << placement_square_idx_)) != 0) {
-		for (int i = 6; i < 12; i++) {
-			if (p_[i] & (1ULL << placement_square_idx_)) {
-				placed_piece_type_ = i;
-				return;
-			}
-		}
-	}
+	uint64_t if_curr_piece = 0;
+	uint64_t if_color = -(color == 0);
+	uint64_t if_flag_option = -(flag == 0);
+	
+	allies_ = (if_color & if_flag_option & occ_[OCC::W_OCC]) | (~if_color & if_flag_option & occ_[OCC::B_OCC]);
+	enemies_ = (if_color & if_flag_option & occ_[OCC::B_OCC]) | (~if_color & if_flag_option & occ_[OCC::W_OCC]);
 
 	placed_piece_type_ = -1;
+
+	for (int i = 0; i < 6; i++) {
+		if (p_[i + correction] & (1ULL << *movementPointer)) {
+			(flag == 0 ? picked_piece_type_ : placed_piece_type_) = i + correction;
+			break;
+		}
+	}
 }
+
+//void BitwiseMoveValidation::determinePickedPiece()
+//{
+//	//find the picked piece
+//	if ((occ_[OCC::W_OCC] & (1ULL << picked_square_idx_)) != 0) {
+//		for (int i = 0; i < 6; i++) {
+//			if (p_[i] & (1ULL << picked_square_idx_)) {
+//				picked_piece_type_ = i;
+//				allies_ = occ_[OCC::W_OCC];
+//				enemies_ = occ_[OCC::B_OCC];
+//				return;
+//			}
+//		}
+//	}
+//
+//	if ((occ_[OCC::B_OCC] & (1ULL << picked_square_idx_)) != 0) {
+//		for (int i = 6; i < 12; i++) {
+//			if (p_[i] & (1ULL << picked_square_idx_)) {
+//				picked_piece_type_ = i;
+//				allies_ = occ_[OCC::B_OCC];
+//				enemies_ = occ_[OCC::W_OCC];
+//				return;
+//			}
+//		}
+//	}
+//}
+//
+//void BitwiseMoveValidation::determinePlacedPiece()
+//{
+//	//find the placed square
+//	if ((occ_[OCC::W_OCC] & (1ULL << placement_square_idx_)) != 0) {
+//		for (int i = 0; i < 6; i++) {
+//			if (p_[i] & (1ULL << placement_square_idx_)) {
+//				placed_piece_type_ = i;
+//				return;
+//			}
+//		}
+//	}
+//
+//	if ((occ_[OCC::B_OCC] & (1ULL << placement_square_idx_)) != 0) {
+//		for (int i = 6; i < 12; i++) {
+//			if (p_[i] & (1ULL << placement_square_idx_)) {
+//				placed_piece_type_ = i;
+//				return;
+//			}
+//		}
+//	}
+//
+//	placed_piece_type_ = -1;
+//}
 
 bool BitwiseMoveValidation::callPieceTypesValidator()
 {
-	determinePickedPiece();
+	//determinePickedPiece();
+	getMovementInfo(moveInfo::picked);
 
 	//array of member function pointers
 	static uint64_t(BitwiseMoveValidation::*jumpTable[])() = {
@@ -115,7 +146,8 @@ bool BitwiseMoveValidation::callPieceTypesValidator()
 		valid_moves = (this->*jumpTable[picked_piece_type_ % 6])();
 	}
 
-	determinePlacedPiece();
+	//determinePlacedPiece();
+	getMovementInfo(moveInfo::placed);
 
 	uint64_t piece_placement = movementValidation(&valid_moves);
 	if (piece_placement == 0) {

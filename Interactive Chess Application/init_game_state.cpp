@@ -28,7 +28,7 @@ InitGameState::Board InitGameState::getInitBoardState() const {
 	Board board;
 
 	board.pieces[0] = white_pawns_;
-	board. pieces[1] = white_knights_;
+	board.pieces[1] = white_knights_;
 	board.pieces[2] = white_rooks_;
 	board.pieces[3] = white_bishops_;
 	board.pieces[4] = white_queens_;
