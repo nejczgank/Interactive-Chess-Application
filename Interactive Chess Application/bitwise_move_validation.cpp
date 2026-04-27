@@ -69,7 +69,7 @@ void BitwiseMoveValidation::getMovementInfo(moveInfo::Type flag)
 	for (int i = 0; i < 6; i++) {
 		if (p_[i + correction] & (1ULL << *movementPointer)) {
 			(flag == 0 ? picked_piece_type_ : placed_piece_type_) = i + correction;
-			break;
+			return;
 		}
 	}
 }
