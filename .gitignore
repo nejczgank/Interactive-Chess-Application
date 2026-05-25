@@ -1,0 +1,6 @@
+/build/
+*.swp
+*.o
+*.d
+compile_commands.json
+*.vcproj*
