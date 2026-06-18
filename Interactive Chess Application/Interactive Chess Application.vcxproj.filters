@@ -13,11 +13,29 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Header Files\MoveValidationComponents">
+      <UniqueIdentifier>{bc392792-5d60-4571-9472-95a20b32a186}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\MoveValidationSystems">
+      <UniqueIdentifier>{761910c2-91d4-4cca-8c9a-3f6a9db90875}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Namespaces">
+      <UniqueIdentifier>{9d2ff586-709d-493e-b05b-ae4739370637}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\OldCode">
+      <UniqueIdentifier>{02f5a54a-15d0-41d5-a8b6-bfd442c6d777}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\OldCode">
+      <UniqueIdentifier>{797da4b9-e07e-473d-85fe-4844697bf366}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\MoveValidationSystems">
+      <UniqueIdentifier>{24e2000b-6907-4534-ad55-9262e068c661}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Main">
+      <UniqueIdentifier>{99c79984-8d29-42c6-9117-267d4dcc9d03}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="App.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="init_game_state.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -28,27 +46,77 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="bitwise_move_validation.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\OldCode</Filter>
     </ClCompile>
     <ClCompile Include="positional_evaluation.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\OldCode</Filter>
+    </ClCompile>
+    <ClCompile Include="App.cpp">
+      <Filter>Source Files\Main</Filter>
+    </ClCompile>
+    <ClCompile Include="positional_eval_system.cpp">
+      <Filter>Source Files\MoveValidationSystems</Filter>
+    </ClCompile>
+    <ClCompile Include="board_updating_system.cpp">
+      <Filter>Source Files\MoveValidationSystems</Filter>
+    </ClCompile>
+    <ClCompile Include="move_validation_system.cpp">
+      <Filter>Source Files\MoveValidationSystems</Filter>
+    </ClCompile>
+    <ClCompile Include="movement_data_system.cpp">
+      <Filter>Source Files\MoveValidationSystems</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="init_game_state.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="player_input.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="display.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="bitwise_move_validation.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="attack_table_component.h">
+      <Filter>Header Files\MoveValidationComponents</Filter>
+    </ClInclude>
+    <ClInclude Include="attack_table_system.h">
+      <Filter>Header Files\MoveValidationSystems</Filter>
+    </ClInclude>
+    <ClInclude Include="board_updating_system.h">
+      <Filter>Header Files\MoveValidationSystems</Filter>
+    </ClInclude>
+    <ClInclude Include="movement_data_system.h">
+      <Filter>Header Files\MoveValidationSystems</Filter>
+    </ClInclude>
+    <ClInclude Include="move_validation_system.h">
+      <Filter>Header Files\MoveValidationSystems</Filter>
+    </ClInclude>
+    <ClInclude Include="movement_data_component.h">
+      <Filter>Header Files\MoveValidationComponents</Filter>
+    </ClInclude>
+    <ClInclude Include="init_game_state.h">
+      <Filter>Header Files\MoveValidationComponents</Filter>
+    </ClInclude>
+    <ClInclude Include="move_info.h">
+      <Filter>Header Files\Namespaces</Filter>
+    </ClInclude>
+    <ClInclude Include="occupancy_info.h">
+      <Filter>Header Files\Namespaces</Filter>
+    </ClInclude>
+    <ClInclude Include="positional_eval_component.h">
+      <Filter>Header Files\MoveValidationComponents</Filter>
+    </ClInclude>
+    <ClInclude Include="positional_eval_system.h">
+      <Filter>Header Files\MoveValidationSystems</Filter>
     </ClInclude>
     <ClInclude Include="positional_evaluation.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\OldCode</Filter>
     </ClInclude>
+    <ClInclude Include="bitwise_move_validation.h">
+      <Filter>Header Files\OldCode</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="findings.md">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

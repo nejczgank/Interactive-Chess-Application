@@ -2,6 +2,8 @@
 #include <iostream>
 #include <cstdint>
 
+//Structure of Arrays (SoA)
+//Not exactly a component but it's fine
 class InitGameState
 {
 public:

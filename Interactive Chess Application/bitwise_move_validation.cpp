@@ -16,6 +16,7 @@ namespace P {
 }
 
 namespace OCC {
+	using Type = int;
 	constexpr int W_OCC = 0;
 	constexpr int B_OCC = 1;
 	constexpr int ALL_OCC = 2;
@@ -51,84 +52,34 @@ void BitwiseMoveValidation::setUpdatedState(int picked_square_idx, int placement
 
 void BitwiseMoveValidation::getMovementInfo(moveInfo::Type flag)
 {
+	//dynamically access the proper value, based on whether we are searching for a
+	//picked piece to compute it's validation or a placed piece to determine placement
 	int* lookupIdx[] = {&picked_square_idx_, &placement_square_idx_};
 	int* movementPointer = lookupIdx[flag];
 
+	//find the color of the piece to adjust the offset, needed for determining subsequent values
 	int color = ((occ_[OCC::W_OCC] & (1ULL << *movementPointer)) != 0) ? 0 : 1;
 	const int correction = 6 * color;
 
-	uint64_t if_curr_piece = 0;
 	uint64_t if_color = -(color == 0);
 	uint64_t if_flag_option = -(flag == 0);
 	
+	//find what the allies or enemies are based on what color piece was picked
 	allies_ = (if_color & if_flag_option & occ_[OCC::W_OCC]) | (~if_color & if_flag_option & occ_[OCC::B_OCC]);
 	enemies_ = (if_color & if_flag_option & occ_[OCC::B_OCC]) | (~if_color & if_flag_option & occ_[OCC::W_OCC]);
 
 	placed_piece_type_ = -1;
 
-	for (int i = 0; i < 6; i++) {
-		if (p_[i + correction] & (1ULL << *movementPointer)) {
-			(flag == 0 ? picked_piece_type_ : placed_piece_type_) = i + correction;
+	for (int i = 0; i < 6; i++) { //move through 6 possible figure types
+		if (p_[i + correction] & (1ULL << *movementPointer)) { //adjust which type gets selected
+			(flag == 0 ? picked_piece_type_ : placed_piece_type_) = i + correction; //save the number to be later used by the jump table
 			return;
 		}
 	}
 }
 
-//void BitwiseMoveValidation::determinePickedPiece()
-//{
-//	//find the picked piece
-//	if ((occ_[OCC::W_OCC] & (1ULL << picked_square_idx_)) != 0) {
-//		for (int i = 0; i < 6; i++) {
-//			if (p_[i] & (1ULL << picked_square_idx_)) {
-//				picked_piece_type_ = i;
-//				allies_ = occ_[OCC::W_OCC];
-//				enemies_ = occ_[OCC::B_OCC];
-//				return;
-//			}
-//		}
-//	}
-//
-//	if ((occ_[OCC::B_OCC] & (1ULL << picked_square_idx_)) != 0) {
-//		for (int i = 6; i < 12; i++) {
-//			if (p_[i] & (1ULL << picked_square_idx_)) {
-//				picked_piece_type_ = i;
-//				allies_ = occ_[OCC::B_OCC];
-//				enemies_ = occ_[OCC::W_OCC];
-//				return;
-//			}
-//		}
-//	}
-//}
-//
-//void BitwiseMoveValidation::determinePlacedPiece()
-//{
-//	//find the placed square
-//	if ((occ_[OCC::W_OCC] & (1ULL << placement_square_idx_)) != 0) {
-//		for (int i = 0; i < 6; i++) {
-//			if (p_[i] & (1ULL << placement_square_idx_)) {
-//				placed_piece_type_ = i;
-//				return;
-//			}
-//		}
-//	}
-//
-//	if ((occ_[OCC::B_OCC] & (1ULL << placement_square_idx_)) != 0) {
-//		for (int i = 6; i < 12; i++) {
-//			if (p_[i] & (1ULL << placement_square_idx_)) {
-//				placed_piece_type_ = i;
-//				return;
-//			}
-//		}
-//	}
-//
-//	placed_piece_type_ = -1;
-//}
-
-bool BitwiseMoveValidation::callPieceTypesValidator()
+uint64_t BitwiseMoveValidation::validator() 
 {
-	//determinePickedPiece();
-	getMovementInfo(moveInfo::picked);
-
 	//array of member function pointers
 	static uint64_t(BitwiseMoveValidation::*jumpTable[])() = {
 		&BitwiseMoveValidation::pawnValidation,
@@ -146,11 +97,43 @@ bool BitwiseMoveValidation::callPieceTypesValidator()
 		valid_moves = (this->*jumpTable[picked_piece_type_ % 6])();
 	}
 
+	return valid_moves;
+}
+
+//uint64_t BitwiseMoveValidation::validator(int picked_piece_type)
+//{
+//	//array of member function pointers
+//	static uint64_t(BitwiseMoveValidation::*jumpTable[])() = {
+//		&BitwiseMoveValidation::pawnValidation,
+//		&BitwiseMoveValidation::knightValidation,
+//		&BitwiseMoveValidation::rookValidation,
+//		&BitwiseMoveValidation::bishopValidation,
+//		&BitwiseMoveValidation::queenValidation,
+//		&BitwiseMoveValidation::kingValidation
+//	};
+//
+//	uint64_t valid_moves = 0;
+//
+//	if (picked_piece_type < 12 && picked_piece_type >= 0) {
+//		//this for running the current instance of BitwiseMoveValidation
+//		valid_moves = (this->*jumpTable[picked_piece_type % 6])();
+//	}
+//
+//	return valid_moves;
+//}
+
+bool BitwiseMoveValidation::callPieceTypesValidator()
+{
+	//determinePickedPiece();
+	getMovementInfo(moveInfo::picked);
+
+	uint64_t valid_moves = validator();
+
 	//determinePlacedPiece();
 	getMovementInfo(moveInfo::placed);
 
 	uint64_t piece_placement = movementValidation(&valid_moves);
-	if (piece_placement == 0) {
+	if (piece_placement == 0ULL) {
 		PlayerInput::outOfScope();
 		return false;
 	}
@@ -390,6 +373,71 @@ uint64_t BitwiseMoveValidation::kingValidation()
 	kingMask |= (((1ULL << picked_square_idx_) >> 7) & not_a_file) & ~allies_;
 
 	return kingMask;
+}
+
+void BitwiseMoveValidation::initAttackTable(OCC::Type color_flag)
+{
+	/*	Board board;
+
+	board.pieces[0] = white_pawns_;
+	board.pieces[1] = white_knights_;
+	board.pieces[2] = white_rooks_;
+	board.pieces[3] = white_bishops_;
+	board.pieces[4] = white_queens_;
+	board.pieces[5] = white_king_;
+	board.pieces[6] = black_pawns_;
+	board.pieces[7] = black_knights_;
+	board.pieces[8] = black_rooks_;
+	board.pieces[9] = black_bishops_;
+	board.pieces[10] = black_queens_;
+	board.pieces[11] = black_king_;
+
+	board.occupancy[0] = white_occupancy_;
+	board.occupancy[1] = black_occupancy_;
+	board.occupancy[2] = white_occupancy_ | black_occupancy_;*/
+
+	//uint64_t white_attack_table = 0;
+	//uint64_t black_attack_table = 0;
+
+	//int correction = 0;
+	//correction = (color_flag == 0) ? 0 : 6;
+
+	//for (int i = 0; i < 6; i++) {
+
+	//	uint64_t curr_bitboard = all_boards_->pieces[i+correction];
+
+	//	while(curr_bitboard != 0)
+	//	{
+
+	//	  uint64_t attack = validator();
+	//	  //or the result into the initial attack table
+	//	}
+	//}
+	//
+}
+
+void BitwiseMoveValidation::attackTable() 
+{
+
+	//implement attack table in here
+	//its purpose is to fetch all square positions where pieces have a legal move to attack at
+	//on every move a piece makes the table gets updated to reflect the new holistic attack state of the board
+	//this is done efficiently by only adjusting for the moved piece, and those who've had their move blocked by
+	//the previous pieces position
+	//doing so is the most efficient way I've thought of designing this system
+	//which in turn aids both check/checkmate algorithm as well as castling algorithm
+
+	//initialize white's attack table
+	initAttackTable(OCC::W_OCC);
+	initAttackTable(OCC::B_OCC);
+	//how do I ensure every piece 
+
+	//initialize black's attack table
+	//find which attacks have intersected the piece that moved and update them
+	//find which attacks have intersected the new position of the piece that moved and update them
+	
+	
+
 }
 
 uint64_t BitwiseMoveValidation::movementValidation(uint64_t* found_moves)

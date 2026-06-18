@@ -15,8 +15,6 @@ public:
 	bool callPieceTypesValidator();
 private:
 	void getMovementInfo(int);
-	void determinePickedPiece();
-	void determinePlacedPiece();
 	uint64_t universalRay(uint64_t, uint64_t);
 	uint64_t rayHalvingHelper(uint64_t*, uint64_t*, uint64_t*);
 	uint64_t diagonalTransformation(uint64_t*);
@@ -29,6 +27,10 @@ private:
 	uint64_t bishopValidation();
 	uint64_t queenValidation();
 	uint64_t kingValidation();
+	uint64_t validator();
+	uint64_t validator(int);
+	void initAttackTable(int);
+	void attackTable();
 	uint64_t movementValidation(uint64_t*);	
 	void updateBoards(uint64_t*);
 	void clearPickedPieceHelper(int);
