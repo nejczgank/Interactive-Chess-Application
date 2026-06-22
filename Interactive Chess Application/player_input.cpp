@@ -60,7 +60,7 @@ bool PlayerInput::validateInput(std::string& format, std::string& picked_square,
 	return true;
 }
 
-int PlayerInput::convertToSquareIndex(std::string& square) { // im getting some werid numbers going on in here
+int PlayerInput::convertToSquareIndex(std::string& square) { // im getting some weird numbers going on in here
 
 	int file = square[0] - 'a';
 	int rank = square[1] - '1';

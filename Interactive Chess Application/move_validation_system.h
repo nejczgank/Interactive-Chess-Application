@@ -10,6 +10,8 @@
 
 class MoveValidationSystem {
 public:
+	static uint64_t validator(InitGameState::Board&, MovementData&);
+private:
 	static uint64_t universalRay(MovementData&, uint64_t, uint64_t);
 	static uint64_t rayHalvingHelper(MovementData&, uint64_t*, uint64_t*, uint64_t*);
 	static uint64_t diagonalTransformation(MovementData&, uint64_t*);
@@ -22,5 +24,4 @@ public:
 	static uint64_t bishopValidation(InitGameState::Board&, MovementData&);
 	static uint64_t queenValidation(InitGameState::Board&, MovementData&);
 	static uint64_t kingValidation(InitGameState::Board&, MovementData&);
-	static uint64_t validator(InitGameState::Board&, MovementData&);
 };

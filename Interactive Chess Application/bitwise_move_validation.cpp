@@ -418,7 +418,6 @@ void BitwiseMoveValidation::initAttackTable(OCC::Type color_flag)
 
 void BitwiseMoveValidation::attackTable() 
 {
-
 	//implement attack table in here
 	//its purpose is to fetch all square positions where pieces have a legal move to attack at
 	//on every move a piece makes the table gets updated to reflect the new holistic attack state of the board

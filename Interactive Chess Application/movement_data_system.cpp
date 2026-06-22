@@ -13,7 +13,7 @@ void GetMovementInfoSystem::executeMovementInfo(const InitGameState::Board& boar
 	const int movementType = lookupIdx[flag];
 
 	//checks for the color of the selected figure
-	const int color = ((board.occupancy[occupancyInfo::white_occ] & (1ULL << movementType)) != 0) ? 0 : 1;
+	const int color = ((board.occupancy[occupancyInfo::white] & (1ULL << movementType)) != 0) ? 0 : 1;
 	//calculates the offset needed for the jump table execution
 	//used for determining the exact colored piece when assessing valid moves
 	const int correction = 6 * color;
@@ -24,8 +24,8 @@ void GetMovementInfoSystem::executeMovementInfo(const InitGameState::Board& boar
 	const uint64_t if_flag_option = -(flag == 0);
 
 	//setting allied or rivaled pieces
-	movement_data.allies = (if_color & if_flag_option & board.occupancy[occupancyInfo::white_occ]) | (~if_color & if_flag_option & board.occupancy[occupancyInfo::black_occ]);
-	movement_data.enemies = (if_color & if_flag_option & board.occupancy[occupancyInfo::black_occ]) | (~if_color & if_flag_option & board.occupancy[occupancyInfo::white_occ]);
+	movement_data.allies = (if_color & if_flag_option & board.occupancy[occupancyInfo::white]) | (~if_color & if_flag_option & board.occupancy[occupancyInfo::black]);
+	movement_data.enemies = (if_color & if_flag_option & board.occupancy[occupancyInfo::black]) | (~if_color & if_flag_option & board.occupancy[occupancyInfo::white]);
 
 	//preemptive flag for later updating of board state
 	//when the variable is set and remains -1, the placed piece didn't overtake any other piece
