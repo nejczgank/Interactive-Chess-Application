@@ -12,21 +12,31 @@
 #include "board_updating_system.h"
 #include "positional_eval_component.h"
 #include "positional_eval_system.h"
+#include "special_move_validation_component.h"
+#include "special_move_validation_system.h"
 
 int main() {
+
 	//Initialize game state
 	InitGameState init_board;
 	InitGameState::Board board = init_board.getInitBoardState();
 
 	//Initialize movement state,
 	MovementData movement_data;
-	
+
+	//Create state for an AI instance
+	PositionalEvalComponent pos_eval;
+
+	bool is_king_check = SpecialMoveValidationSystem::isKingCheck(board, 0);
+
+	//***color state machine init***//
+	bool white_turn = true;
+	bool black_turn = false;
+	//------------------------------//
+
 	while (true) {
 
 		//---------------//---------------//--------------- PREPERATION ---------------//---------------//---------------//---------------
-		//Create state for an AI instance
-		PositionalEvalComponent pos_eval;
-
 		//Draw board
 		Display::displayBoard(&board);
 
@@ -53,12 +63,6 @@ int main() {
 		
 		BoardUpdatingSystem::updateBoards(board, movement_data, pos_eval, piece_placement);
 		//---------------//---------------//---------------//---------------//---------------//---------------//---------------//---------------
-
-		//Move validation (commented out for now while refactoring)
-		/*validateThisBoard.setUpdatedState(picked_square_idx, placement_square_idx);
-		if (!validateThisBoard.callPieceTypesValidator()) {
-			continue;
-		}*/
 	}
 	//cleanup the code
 	//uint tests

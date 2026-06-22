@@ -22,10 +22,11 @@ uint64_t MoveValidationSystem::universalRay(MovementData& movement_data, uint64_
 	uint64_t if_both_blockers_exist = if_ray_to_enemy_blockers & if_ray_to_ally_blockers;
 	uint64_t if_no_path_forward = -(((halved_ray & movement_data.allies) != 0) && if_ray_to_ally_blockers == 0);
 
-	uint64_t universal_ray = (if_only_one_blocker_exists & ~if_no_path_forward & ray_to_enemy_blockers) |
-		(if_only_one_blocker_exists & ~if_no_path_forward & ray_to_ally_blockers) |
-		(if_both_blockers_exist & (ray_to_enemy_blockers & ray_to_ally_blockers)) |
-		(~if_both_blockers_exist & ~if_only_one_blocker_exists & halved_ray);
+	uint64_t universal_ray = 
+		(if_only_one_blocker_exists & ~if_no_path_forward & ray_to_enemy_blockers) |
+		(if_only_one_blocker_exists & ~if_no_path_forward & ray_to_ally_blockers)  |
+		(if_both_blockers_exist & (ray_to_enemy_blockers & ray_to_ally_blockers))  |
+		(~if_both_blockers_exist & ~if_only_one_blocker_exists & ~if_no_path_forward & halved_ray); //added ~if_no_path_forward
 
 	return universal_ray;
 }
@@ -121,13 +122,14 @@ uint64_t MoveValidationSystem::pawnValidation(InitGameState::Board& board, Movem
 	uint64_t if_init = -(int64_t)((movement_data.picked_square_idx / 8) == determine_init_pos);
 
 	//preventing progression to occupied squares (regular move)
-	uint64_t if_occupied_first = -(int64_t)((if_white & (board.occupancy[occupancyInfo::all_occ] & (1ULL << (movement_data.picked_square_idx + 8)))) | (if_black & (board.occupancy[occupancyInfo::all_occ] & ((1ULL << movement_data.picked_square_idx) >> 8))));
-	uint64_t if_occupied_second = -(int64_t)((if_white & (board.occupancy[occupancyInfo::all_occ] & (0x101ULL << (movement_data.picked_square_idx + 8)))) | (if_black & (board.occupancy[occupancyInfo::all_occ] & ((0x101ULL << movement_data.picked_square_idx) >> 16))));
+	uint64_t if_occupied_first = -(int64_t)((if_white & (board.occupancy[occupancyInfo::all] & (1ULL << (movement_data.picked_square_idx + 8)))) | (if_black & (board.occupancy[occupancyInfo::all] & ((1ULL << movement_data.picked_square_idx) >> 8))));
+	//if_occupied_second shifts two vertical bits, meaning the determine_regular_move doesn't require extra if_occupied_first check
+	uint64_t if_occupied_second = -(int64_t)((if_white & (board.occupancy[occupancyInfo::all] & (0x101ULL << (movement_data.picked_square_idx + 8)))) | (if_black & (board.occupancy[occupancyInfo::all] & ((0x101ULL << movement_data.picked_square_idx) >> 16))));
 
-	uint64_t determine_regular_move = (if_init & if_white & ~if_occupied_second & (0x101ULL << (movement_data.picked_square_idx + 8))) |
-		(~if_init & if_white & ~if_occupied_first & (1ULL << (movement_data.picked_square_idx + 8))) |
-		(if_init & if_black & ~if_occupied_second & ((0x101ULL << movement_data.picked_square_idx) >> 16)) |
-		(~if_init & if_black & ~if_occupied_first & ((1ULL << movement_data.picked_square_idx) >> 8))
+	uint64_t determine_regular_move = (if_init & if_white & ~if_occupied_second & (0x101ULL << (movement_data.picked_square_idx + 8)))   |
+									  (~if_init & if_white & ~if_occupied_first & (1ULL << (movement_data.picked_square_idx + 8)))       |
+									  (if_init & if_black & ~if_occupied_second & ((0x101ULL << movement_data.picked_square_idx) >> 16)) |
+									  (~if_init & if_black & ~if_occupied_first & ((1ULL << movement_data.picked_square_idx) >> 8))
 	;
 
 	pawnMask |= determine_regular_move;
@@ -136,10 +138,10 @@ uint64_t MoveValidationSystem::pawnValidation(InitGameState::Board& board, Movem
 	uint64_t not_a = 0xfefefefefefefefe;
 	uint64_t not_h = 0x7f7f7f7f7f7f7f7f;
 
-	uint64_t determine_atk = (if_white & not_h & (board.occupancy[occupancyInfo::black_occ] & (1ULL << (movement_data.picked_square_idx + 7)))) |
-							 (if_white & (board.occupancy[occupancyInfo::black_occ] & (1ULL << (movement_data.picked_square_idx + 9))) |
-							 (if_black & not_a & (board.occupancy[occupancyInfo::white_occ] & ((1ULL << movement_data.picked_square_idx) >> 7))) |
-							 (if_black & (board.occupancy[occupancyInfo::white_occ] & (1ULL << movement_data.picked_square_idx) >> 9)))
+	uint64_t determine_atk = (if_white & not_h & (board.occupancy[occupancyInfo::black] & (1ULL << (movement_data.picked_square_idx + 7)))) |
+							 (if_white & (board.occupancy[occupancyInfo::black] & (1ULL << (movement_data.picked_square_idx + 9))) |
+							 (if_black & not_a & (board.occupancy[occupancyInfo::white] & ((1ULL << movement_data.picked_square_idx) >> 7))) |
+							 (if_black & (board.occupancy[occupancyInfo::white] & (1ULL << movement_data.picked_square_idx) >> 9)))
 	;
 
 	pawnMask |= determine_atk;
@@ -150,6 +152,8 @@ uint64_t MoveValidationSystem::pawnValidation(InitGameState::Board& board, Movem
 	return pawnMask;
 }
 
+//following functions have a board argument, because pawn validation required it, and all functions need same
+//parameters for the jump table to execute
 uint64_t MoveValidationSystem::knightValidation(InitGameState::Board&, MovementData& movement_data)
 {
 	uint64_t knight_mask = 0;

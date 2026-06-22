@@ -26,7 +26,7 @@ void BoardUpdatingSystem::updateBoards(InitGameState::Board& board, MovementData
 	placeNewPieceHelper(board, movement_data, piece_placement, color, opposite_color);
 
 	//adjust all occupancy
-	board.occupancy[occupancyInfo::all_occ] = board.occupancy[occupancyInfo::white_occ] | board.occupancy[occupancyInfo::black_occ];
+	board.occupancy[occupancyInfo::all] = board.occupancy[occupancyInfo::white] | board.occupancy[occupancyInfo::black];
 }
 
 void BoardUpdatingSystem::clearPickedPieceHelper(InitGameState::Board& board, MovementData& movement_data, int color)
