@@ -35,8 +35,8 @@ bool SpecialMoveValidationSystem::isKingCheck(InitGameState::Board& board, int c
 
 	//assign general movement state
 	movement_data.allies = board.occupancy[color];
-	int const king_value = (int)board.pieces[piece[pieceInfo::king]]; //converts uint64_t board representation to int num
-	movement_data.picked_square_idx = (int)std::log2(king_value); //converts board value num to index num
+	int const king_bitboard = (int)board.pieces[piece[pieceInfo::king]]; //converts uint64_t board representation to int num
+	movement_data.picked_square_idx = std::countr_zero(static_cast<uint64_t>(king_bitboard)); //converts board value num to index num
 
 	//add knight state, compute knight moves
 	movement_data.picked_piece_type = piece[pieceInfo::knight];
@@ -87,6 +87,8 @@ bool SpecialMoveValidationSystem::isKingCheck(InitGameState::Board& board, int c
 	{
 		return true;
 	}
+
+	return false;
 }
 
 int SpecialMoveValidationSystem::isKingCheckmate() 
@@ -96,5 +98,5 @@ int SpecialMoveValidationSystem::isKingCheckmate()
 	//**the function also invokes stalemate if only the square the king is currently occupying is safe
 	//**clockwise direction of checks
 
-
+	return 0;
 }
