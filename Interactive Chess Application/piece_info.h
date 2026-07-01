@@ -1,25 +1,28 @@
 #pragma once
 namespace pieceInfo
 {
-	//type and color
-	constexpr int white_pawn = 0;
-	constexpr int white_knight = 1;
-	constexpr int white_rook = 2;
-	constexpr int white_bishop = 3;
-	constexpr int white_queen = 4;
-	constexpr int white_king = 5;
-	constexpr int black_pawn = 6;
-	constexpr int black_knight = 7;
-	constexpr int black_rook = 8;
-	constexpr int black_bishop = 9;
-	constexpr int black_queen = 10;
-	constexpr int black_king = 11;
+	enum piece : int
+	{
+		//type and color
+		white_pawn = 0,
+		white_knight = 1,
+		white_rook = 2,
+		white_bishop = 3,
+		white_queen = 4,
+		white_king = 5,
+		black_pawn = 6,
+		black_knight = 7,
+		black_rook = 8,
+		black_bishop = 9,
+		black_queen = 10,
+		black_king = 11,
 
-	//types only
-	constexpr int pawn = 0;
-	constexpr int knight = 1;
-	constexpr int rook = 2;
-	constexpr int bishop = 3;
-	constexpr int queen = 4;
-	constexpr int king = 5;
+		//types only
+		pawn = 0,
+		knight = 1,
+		rook = 2,
+		bishop = 3,
+		queen = 4,
+		king = 5
+	};
 }

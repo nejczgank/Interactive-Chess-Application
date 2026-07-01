@@ -17,6 +17,9 @@
 
 int main() {
 
+	//scoped enum declaration
+	using enum moveInfo::move;
+
 	//Initialize game state
 	InitGameState init_board;
 	InitGameState::Board board = init_board.getInitBoardState();
@@ -45,13 +48,13 @@ int main() {
 		
 		//---------------//---------------//--------------- MOVEMENT VALIDATION ---------------//---------------//---------------//---------------
 		//Obtain movement data for the picked piece
-		GetMovementInfoSystem::executeMovementInfo(board, movement_data, moveInfo::picked, picked_square_idx, placement_square_idx);
+		GetMovementInfoSystem::executeMovementInfo(board, movement_data, picked, picked_square_idx, placement_square_idx);
 
 		//Validate legal moves for the picked piece
 		uint64_t valid_moves = MoveValidationSystem::validator(board, movement_data);
 
 		//Obtain movement data for the placed piece
-		GetMovementInfoSystem::executeMovementInfo(board, movement_data, moveInfo::placed, picked_square_idx, placement_square_idx);
+		GetMovementInfoSystem::executeMovementInfo(board, movement_data, placed, picked_square_idx, placement_square_idx);
 		
 		//Look if there are any legal moves, to enforce correctness
 		uint64_t piece_placement = BoardUpdatingSystem::movementValidation(movement_data, valid_moves);
