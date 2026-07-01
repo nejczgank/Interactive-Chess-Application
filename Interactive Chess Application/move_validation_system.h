@@ -7,6 +7,7 @@
 #include "player_input.h"
 #include "positional_evaluation.h"
 #include "movement_data_component.h"
+#include "occupancy_info.h"
 
 class MoveValidationSystem {
 public:

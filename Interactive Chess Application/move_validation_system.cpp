@@ -1,5 +1,4 @@
 #include "move_validation_system.h"
-#include "occupancy_info.h"
 
 uint64_t MoveValidationSystem::universalRay(MovementData& movement_data, uint64_t direction_bitfield, uint64_t full_ray)
 {
@@ -34,7 +33,7 @@ uint64_t MoveValidationSystem::universalRay(MovementData& movement_data, uint64_
 uint64_t MoveValidationSystem::rayHalvingHelper(MovementData& movement_data, uint64_t* significant_bit_truth_mask, uint64_t* transposition_truth_mask, uint64_t* full_ray)
 {
 	uint64_t if_significant_bit_mask = -(int64_t)(*significant_bit_truth_mask == 0);
-	uint64_t if_diagonal = -((*full_ray == 0x102040810204080) | (*full_ray == 0x8040201008040201)); //defaults to true?
+	uint64_t if_diagonal = -((*full_ray == 0x102040810204080) | (*full_ray == 0x8040201008040201));
 
 	uint64_t determined_transposed_ray = 0;
 	//replace this with a switch, if, lookup table maybe? just don't let it execute two functions like that
@@ -110,6 +109,8 @@ uint64_t MoveValidationSystem::findAllyBlockersHelper(MovementData& movement_dat
 
 uint64_t MoveValidationSystem::pawnValidation(InitGameState::Board& board, MovementData& movement_data)
 {
+	using enum occupancyInfo::occupancy;
+
 	uint64_t pawnMask = 0;
 	uint64_t if_white = 0;
 	uint64_t if_black = 0;
@@ -122,9 +123,9 @@ uint64_t MoveValidationSystem::pawnValidation(InitGameState::Board& board, Movem
 	uint64_t if_init = -(int64_t)((movement_data.picked_square_idx / 8) == determine_init_pos);
 
 	//preventing progression to occupied squares (regular move)
-	uint64_t if_occupied_first = -(int64_t)((if_white & (board.occupancy[occupancyInfo::all] & (1ULL << (movement_data.picked_square_idx + 8)))) | (if_black & (board.occupancy[occupancyInfo::all] & ((1ULL << movement_data.picked_square_idx) >> 8))));
+	uint64_t if_occupied_first = -(int64_t)((if_white & (board.occupancy[all] & (1ULL << (movement_data.picked_square_idx + 8)))) | (if_black & (board.occupancy[all] & ((1ULL << movement_data.picked_square_idx) >> 8))));
 	//if_occupied_second shifts two vertical bits, meaning the determine_regular_move doesn't require extra if_occupied_first check
-	uint64_t if_occupied_second = -(int64_t)((if_white & (board.occupancy[occupancyInfo::all] & (0x101ULL << (movement_data.picked_square_idx + 8)))) | (if_black & (board.occupancy[occupancyInfo::all] & ((0x101ULL << movement_data.picked_square_idx) >> 16))));
+	uint64_t if_occupied_second = -(int64_t)((if_white & (board.occupancy[all] & (0x101ULL << (movement_data.picked_square_idx + 8)))) | (if_black & (board.occupancy[all] & ((0x101ULL << movement_data.picked_square_idx) >> 16))));
 
 	uint64_t determine_regular_move = (if_init & if_white & ~if_occupied_second & (0x101ULL << (movement_data.picked_square_idx + 8)))   |
 									  (~if_init & if_white & ~if_occupied_first & (1ULL << (movement_data.picked_square_idx + 8)))       |
@@ -138,10 +139,10 @@ uint64_t MoveValidationSystem::pawnValidation(InitGameState::Board& board, Movem
 	uint64_t not_a = 0xfefefefefefefefe;
 	uint64_t not_h = 0x7f7f7f7f7f7f7f7f;
 
-	uint64_t determine_atk = (if_white & not_h & (board.occupancy[occupancyInfo::black] & (1ULL << (movement_data.picked_square_idx + 7)))) |
-							 (if_white & (board.occupancy[occupancyInfo::black] & (1ULL << (movement_data.picked_square_idx + 9))) |
-							 (if_black & not_a & (board.occupancy[occupancyInfo::white] & ((1ULL << movement_data.picked_square_idx) >> 7))) |
-							 (if_black & (board.occupancy[occupancyInfo::white] & (1ULL << movement_data.picked_square_idx) >> 9)))
+	uint64_t determine_atk = (if_white & not_h & (board.occupancy[black] & (1ULL << (movement_data.picked_square_idx + 7)))) |
+							 (if_white & (board.occupancy[black] & (1ULL << (movement_data.picked_square_idx + 9))) |
+							 (if_black & not_a & (board.occupancy[white] & ((1ULL << movement_data.picked_square_idx) >> 7))) |
+							 (if_black & (board.occupancy[white] & (1ULL << movement_data.picked_square_idx) >> 9)))
 	;
 
 	pawnMask |= determine_atk;

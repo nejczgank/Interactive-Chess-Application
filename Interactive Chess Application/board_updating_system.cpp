@@ -10,6 +10,8 @@ uint64_t BoardUpdatingSystem::movementValidation(MovementData& movement_data, ui
 
 void BoardUpdatingSystem::updateBoards(InitGameState::Board& board, MovementData& movement_data,  PositionalEvalComponent& pos_eval_data, uint64_t piece_placement)
 {
+	using enum occupancyInfo::occupancy;
+
 	int color = 0;
 	int opposite_color = 0;
 
@@ -26,7 +28,7 @@ void BoardUpdatingSystem::updateBoards(InitGameState::Board& board, MovementData
 	placeNewPieceHelper(board, movement_data, piece_placement, color, opposite_color);
 
 	//adjust all occupancy
-	board.occupancy[occupancyInfo::all] = board.occupancy[occupancyInfo::white] | board.occupancy[occupancyInfo::black];
+	board.occupancy[occupancyInfo::all] = board.occupancy[white] | board.occupancy[black];
 }
 
 void BoardUpdatingSystem::clearPickedPieceHelper(InitGameState::Board& board, MovementData& movement_data, int color)
