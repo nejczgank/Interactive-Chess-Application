@@ -125,6 +125,12 @@
     <ClInclude Include="piece_info.h">
       <Filter>Header Files\Namespaces</Filter>
     </ClInclude>
+    <ClInclude Include="ray_transposition_info.h">
+      <Filter>Header Files\Namespaces</Filter>
+    </ClInclude>
+    <ClInclude Include="ray_direction_info.h">
+      <Filter>Header Files\Namespaces</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="findings.md">

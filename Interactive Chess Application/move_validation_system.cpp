@@ -25,19 +25,21 @@ uint64_t MoveValidationSystem::universalRay(MovementData& movement_data, uint64_
 		(if_only_one_blocker_exists & ~if_no_path_forward & ray_to_enemy_blockers) |
 		(if_only_one_blocker_exists & ~if_no_path_forward & ray_to_ally_blockers)  |
 		(if_both_blockers_exist & (ray_to_enemy_blockers & ray_to_ally_blockers))  |
-		(~if_both_blockers_exist & ~if_only_one_blocker_exists & ~if_no_path_forward & halved_ray); //added ~if_no_path_forward
+		(~if_both_blockers_exist & ~if_only_one_blocker_exists & ~if_no_path_forward & halved_ray);
 
 	return universal_ray;
 }
 
 uint64_t MoveValidationSystem::rayHalvingHelper(MovementData& movement_data, uint64_t* significant_bit_truth_mask, uint64_t* transposition_truth_mask, uint64_t* full_ray)
 {
+	using enum rayTranspositionInfo::rays;
+
 	uint64_t if_significant_bit_mask = -(int64_t)(*significant_bit_truth_mask == 0);
-	uint64_t if_diagonal = -((*full_ray == 0x102040810204080) | (*full_ray == 0x8040201008040201));
+	uint64_t if_diagonal = -((*full_ray == anti_diagonal) | (*full_ray == diagonal));
 
 	uint64_t determined_transposed_ray = 0;
 	//replace this with a switch, if, lookup table maybe? just don't let it execute two functions like that
-	if (*full_ray == 0x102040810204080 || *full_ray == 0x8040201008040201) {
+	if (*full_ray == anti_diagonal || *full_ray == diagonal) {
 		determined_transposed_ray = diagonalTransformation(movement_data, full_ray);
 	}
 	else {
@@ -51,8 +53,10 @@ uint64_t MoveValidationSystem::rayHalvingHelper(MovementData& movement_data, uin
 
 uint64_t MoveValidationSystem::diagonalTransformation(MovementData& movement_data, uint64_t* full_ray)
 {
-	uint64_t if_right_starting_diagonal = -(*full_ray == 0x102040810204080);
-	uint64_t if_left_starting_diagonal = -(*full_ray == 0x8040201008040201);
+	using enum rayTranspositionInfo::rays;
+
+	uint64_t if_right_starting_diagonal = -(*full_ray == anti_diagonal);
+	uint64_t if_left_starting_diagonal = -(*full_ray == diagonal);
 
 	int rank = (int)(movement_data.picked_square_idx / 8);
 	int file = (int)(movement_data.picked_square_idx % 8);
@@ -136,8 +140,8 @@ uint64_t MoveValidationSystem::pawnValidation(InitGameState::Board& board, Movem
 	pawnMask |= determine_regular_move;
 
 	//handling wrap around for attacks
-	uint64_t not_a = 0xfefefefefefefefe;
-	uint64_t not_h = 0x7f7f7f7f7f7f7f7f;
+	constexpr uint64_t not_a = 0xfefefefefefefefe;
+	constexpr uint64_t not_h = 0x7f7f7f7f7f7f7f7f;
 
 	uint64_t determine_atk = (if_white & not_h & (board.occupancy[black] & (1ULL << (movement_data.picked_square_idx + 7)))) |
 							 (if_white & (board.occupancy[black] & (1ULL << (movement_data.picked_square_idx + 9))) |
@@ -159,10 +163,10 @@ uint64_t MoveValidationSystem::knightValidation(InitGameState::Board&, MovementD
 {
 	uint64_t knight_mask = 0;
 
-	uint64_t not_a = 0xfefefefefefefefe;
-	uint64_t not_b = 0xfdfdfdfdfdfdfdfd;
-	uint64_t not_g = 0xbfbfbfbfbfbfbfbf;
-	uint64_t not_h = 0x7f7f7f7f7f7f7f7f;
+	constexpr uint64_t not_a = 0xfefefefefefefefe;
+	constexpr uint64_t not_b = 0xfdfdfdfdfdfdfdfd;
+	constexpr uint64_t not_g = 0xbfbfbfbfbfbfbfbf;
+	constexpr uint64_t not_h = 0x7f7f7f7f7f7f7f7f;
 
 	knight_mask |= ((1ULL << movement_data.picked_square_idx) & not_h) << 17 & ~movement_data.allies;
 	knight_mask |= ((1ULL << movement_data.picked_square_idx) & not_g & not_h) << 10 & ~movement_data.allies;
@@ -179,40 +183,49 @@ uint64_t MoveValidationSystem::knightValidation(InitGameState::Board&, MovementD
 
 uint64_t MoveValidationSystem::rookValidation(InitGameState::Board&, MovementData& movement_data)
 {
+	using enum rayTranspositionInfo::rays;
+	using enum rayDirectionInfo::rays;
+
 	uint64_t rook_mask = 0;
 
-	rook_mask |= universalRay(movement_data, 0x0, 0x101010101010101); //north
-	rook_mask |= universalRay(movement_data, 0x2, 0xff);			   //east
-	rook_mask |= universalRay(movement_data, 0x1, 0x101010101010101); //south
-	rook_mask |= universalRay(movement_data, 0x3, 0xff);			   //west
+	rook_mask |= universalRay(movement_data, north, vertical);	//north
+	rook_mask |= universalRay(movement_data, east, horizontal);	//east
+	rook_mask |= universalRay(movement_data, south, vertical);	//south
+	rook_mask |= universalRay(movement_data, west, horizontal);	//west
 
 	return rook_mask;
 }
 
 uint64_t MoveValidationSystem::bishopValidation(InitGameState::Board&, MovementData& movement_data)
 {
+	using enum rayTranspositionInfo::rays;
+	using enum rayDirectionInfo::rays;
+
 	uint64_t bishop_mask = 0;
 
-	bishop_mask |= universalRay(movement_data, 0x0, 0x8040201008040201); //north-east
-	bishop_mask |= universalRay(movement_data, 0x1, 0x102040810204080);  //south-east
-	bishop_mask |= universalRay(movement_data, 0x1, 0x8040201008040201);  //south-west
-	bishop_mask |= universalRay(movement_data, 0x0, 0x102040810204080); //north-west
+	bishop_mask |= universalRay(movement_data, north_east, diagonal);		//north-east
+	bishop_mask |= universalRay(movement_data, south_east, anti_diagonal);	//south-east
+	bishop_mask |= universalRay(movement_data, south_west, diagonal);		//south-west
+	bishop_mask |= universalRay(movement_data, north_west, anti_diagonal);	//north-west
 
 	return bishop_mask;
 }
 
 uint64_t MoveValidationSystem::queenValidation(InitGameState::Board&, MovementData& movement_data)
 {
+	using enum rayTranspositionInfo::rays;
+	using enum rayDirectionInfo::rays;
+
 	uint64_t queen_mask = 0;
 
-	queen_mask |= universalRay(movement_data, 0x0, 0x101010101010101);  //north
-	queen_mask |= universalRay(movement_data, 0x0, 0x8040201008040201); //north-east
-	queen_mask |= universalRay(movement_data, 0x2, 0xff);				 //east
-	queen_mask |= universalRay(movement_data, 0x1, 0x102040810204080);  //south-east
-	queen_mask |= universalRay(movement_data, 0x1, 0x101010101010101);  //south
-	queen_mask |= universalRay(movement_data, 0x1, 0x8040201008040201); //south-west
-	queen_mask |= universalRay(movement_data, 0x3, 0xff);				 //west
-	queen_mask |= universalRay(movement_data, 0x0, 0x102040810204080);  //north-west
+	queen_mask |= universalRay(movement_data, north, vertical);				//north
+	queen_mask |= universalRay(movement_data, north_east, diagonal);		//north-east
+	queen_mask |= universalRay(movement_data, east, horizontal);			//east
+	queen_mask |= universalRay(movement_data, south_east, anti_diagonal);	//south-east
+	queen_mask |= universalRay(movement_data, south, vertical);				//south
+	queen_mask |= universalRay(movement_data, south_west, diagonal);		//south-west
+	queen_mask |= universalRay(movement_data, west, horizontal);			//west
+	queen_mask |= universalRay(movement_data, north_west, anti_diagonal);	//north-west
 
 	return queen_mask;
 }
@@ -221,8 +234,8 @@ uint64_t MoveValidationSystem::kingValidation(InitGameState::Board&, MovementDat
 {
 	uint64_t kingMask = 0;
 
-	uint64_t not_a_file = ~0x1010101010101010;
-	uint64_t not_h_file = ~0x8080808080808080;
+	constexpr uint64_t not_a_file = ~0x1010101010101010;
+	constexpr uint64_t not_h_file = ~0x8080808080808080;
 
 	kingMask |= ((1ULL << movement_data.picked_square_idx) << 8) & ~movement_data.allies;
 	kingMask |= ((1ULL << movement_data.picked_square_idx) >> 8) & ~movement_data.allies;

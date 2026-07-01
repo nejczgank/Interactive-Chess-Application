@@ -143,6 +143,7 @@
     <ClInclude Include="bitwise_move_validation.h" />
     <ClInclude Include="board_updating_system.h" />
     <ClInclude Include="display.h" />
+    <ClInclude Include="ray_transposition_info.h" />
     <ClInclude Include="move_info.h" />
     <ClInclude Include="movement_data_system.h" />
     <ClInclude Include="init_game_state.h" />
@@ -154,6 +155,7 @@
     <ClInclude Include="positional_evaluation.h" />
     <ClInclude Include="positional_eval_component.h" />
     <ClInclude Include="positional_eval_system.h" />
+    <ClInclude Include="ray_direction_info.h" />
     <ClInclude Include="special_move_validation_component.h" />
     <ClInclude Include="special_move_validation_system.h" />
   </ItemGroup>
