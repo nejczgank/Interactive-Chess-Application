@@ -13,7 +13,7 @@ InitGameState::InitGameState() {
 	black_knights_   = 0x4200000000000000;
 	black_rooks_	 = 0x8100000000000000;
 	black_bishops_	 = 0x2400000000000000;
-	black_queens_    = 0x0800000000000000;
+	black_queens_	 = 0x0800000000000000;
 	black_king_      = 0x1000000000000000;
 
 	white_occupancy_ = white_pawns_ | white_knights_ | white_rooks_ | white_bishops_ | white_queens_ | white_king_;

@@ -25,6 +25,7 @@ bool SpecialMoveValidationSystem::isKingCheck(InitGameState::Board& board, int c
 		queen + color_offset,
 		king + color_offset
 	};
+
 	int enemy_piece[6] = {
 		pawn + opposite_color_offset,
 		knight + opposite_color_offset,

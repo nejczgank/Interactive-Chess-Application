@@ -8,6 +8,8 @@
 #include "positional_evaluation.h"
 #include "movement_data_component.h"
 #include "occupancy_info.h"
+#include "ray_transposition_info.h"
+#include "ray_direction_info.h"
 
 class MoveValidationSystem {
 public:
