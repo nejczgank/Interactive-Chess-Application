@@ -44,7 +44,7 @@ void Display::constructBoard(InitGameState::Board &board) {
                 Display::compressed_board_[j] = piece_symbol[i];
 
                 //flip the bit off for faster loop exit
-                curr_bitboard = curr_bitboard ^ (1Ull << j);
+                curr_bitboard = curr_bitboard ^ (1ULL << j);
             }
 		}
 	}
