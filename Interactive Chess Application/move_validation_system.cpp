@@ -2,17 +2,17 @@
 
 uint64_t MoveValidationSystem::universalRay(MovementData& movement_data, uint64_t direction_bitfield, uint64_t full_ray)
 {
-	const uint64_t sel_ray_dir = -(int64_t)(direction_bitfield & 0x01);
-	const uint64_t sel_transposed_ray = -(int64_t)((direction_bitfield >> 1) & 0x01);
+	const uint64_t sel_ray_half = -(int64_t)(direction_bitfield & 0x01);
+	const uint64_t sel_ray_rotation = -(int64_t)((direction_bitfield >> 1) & 0x01);
 
 	//find the appropriate half ray
-	const uint64_t directional_ray = rayHalvingHelper(movement_data, sel_ray_dir, sel_transposed_ray, full_ray);
+	const uint64_t directional_ray_mask = rayHalvingHelper(movement_data, sel_ray_half, sel_ray_rotation, full_ray);
 
 	//adjust ray when enemy blockers are present
-	const uint64_t ray_to_enemy_blockers = findEnemyBlockersHelper(movement_data, sel_ray_dir, directional_ray);
+	const uint64_t ray_to_enemy_blockers_mask = findEnemyBlockersHelper(movement_data, sel_ray_half, directional_ray_mask);
 
 	//adjust ray when ally blockers are present
-	const uint64_t ray_to_ally_blockers = findAllyBlockersHelper(movement_data, sel_ray_dir, directional_ray);
+	const uint64_t ray_to_ally_blockers_mask = findAllyBlockersHelper(movement_data, sel_ray_half, directional_ray_mask);
 
 	// if blockers are both empty then result is a default halved ray
 	// if only one blocker exit than that blocker is the result
@@ -35,46 +35,62 @@ uint64_t MoveValidationSystem::universalRay(MovementData& movement_data, uint64_
 	* to isolate this specific instance. If allies are present yet ray detects 0, then a blocker can only be right in front.
 	*/
 
-	const uint64_t if_ray_to_enemy_blockers		= -(ray_to_enemy_blockers != 0);
-	const uint64_t if_ray_to_ally_blockers		= -(ray_to_ally_blockers != 0);
+	const uint64_t if_ray_to_enemy_blockers		= -(ray_to_enemy_blockers_mask != 0);
+	const uint64_t if_ray_to_ally_blockers		= -(ray_to_ally_blockers_mask != 0);
 	//auxiliary selectors
 	const uint64_t if_only_one_blocker_exists	= if_ray_to_enemy_blockers ^ if_ray_to_ally_blockers;
 	const uint64_t if_both_blockers_exist		= if_ray_to_enemy_blockers & if_ray_to_ally_blockers;
 	//special case
-	const uint64_t if_no_path_forward			= -(((directional_ray & movement_data.allies) != 0) && if_ray_to_ally_blockers == 0);
+	const uint64_t if_no_path_forward			= -(((directional_ray_mask & movement_data.allies) != 0) && if_ray_to_ally_blockers == 0);
 
 	const uint64_t universal_ray = 
-		(if_only_one_blocker_exists & ~if_no_path_forward & ray_to_enemy_blockers) | //only enemy blockers
-		(if_only_one_blocker_exists & ~if_no_path_forward & ray_to_ally_blockers)  | //only ally blockers
-		(if_both_blockers_exist & (ray_to_enemy_blockers & ray_to_ally_blockers))  | //both blockers
-		(~if_both_blockers_exist & ~if_only_one_blocker_exists & ~if_no_path_forward & directional_ray); //full directional ray
+		(if_only_one_blocker_exists & ~if_no_path_forward & ray_to_enemy_blockers_mask) | //only enemy blockers
+		(if_only_one_blocker_exists & ~if_no_path_forward & ray_to_ally_blockers_mask)  | //only ally blockers
+		(if_both_blockers_exist & (ray_to_enemy_blockers_mask & ray_to_ally_blockers_mask))  | //both blockers
+		(~if_both_blockers_exist & ~if_only_one_blocker_exists & ~if_no_path_forward & directional_ray_mask); //full directional ray
 
 	return universal_ray;
 }
 
-uint64_t MoveValidationSystem::rayHalvingHelper(MovementData& movement_data, uint64_t sel_ray_dir, uint64_t sel_transposed_ray, uint64_t full_ray)
+uint64_t MoveValidationSystem::rayHalvingHelper(MovementData& movement_data, uint64_t sel_ray_half, uint64_t sel_ray_rotation, uint64_t full_ray)
 {
+	/*
+	* a ray is initially constructed via full_ray, obtained from defined constants in ray_transposition_info
+	* this ray gets transposed to fit exactly where the piece is situated
+	* sel_ray_dir handles which half of the full ray needs to be selected, 
+	* whereas sel_transposed_ray handles which ray rotation has to be selected
+	*/
+
 	using enum rayTranspositionInfo::rays;
 
-	uint64_t if_significant_bit_mask = -(int64_t)(sel_ray_dir == 0);
-	uint64_t if_diagonal = -((full_ray == anti_diagonal) | (full_ray == diagonal));
+	//isolating selection
+	const uint64_t if_ray_half = -(int64_t)(sel_ray_half == 0);
+	const uint64_t if_diagonal = -( (full_ray == anti_diagonal) | (full_ray == diagonal) );
 
-	uint64_t determined_transposed_ray = 0;
-	//replace this with a switch, if, lookup table maybe? just don't let it execute two functions like that
+	uint64_t mask_transposed_ray = 0;
+
+	//the implementation of the ray transformation mechanic varies, whether it's diagonal or nondiagonal
 	if (full_ray == anti_diagonal || full_ray == diagonal) 
-	{
-		determined_transposed_ray = diagonalTransformation(movement_data, full_ray);
+	{ 
+		mask_transposed_ray = diagonalTransformation(movement_data, full_ray);
 	}
 	else 
 	{
-		determined_transposed_ray = nonDiagonalTransformation(movement_data, sel_transposed_ray, full_ray);
+		mask_transposed_ray = nonDiagonalTransformation(movement_data, sel_ray_rotation, full_ray);
 	}
 
-	uint64_t determined_halving = (if_significant_bit_mask & ~((1ULL << (movement_data.picked_square_idx + 1)) - 1)) | (~if_significant_bit_mask & ((1ULL << movement_data.picked_square_idx) - 1));
+	//ray halving creates a mask that intersects with full ray to isolate the specific direction
+	//**1ULL is at first idx. from there there are 63 possible shifts
+	//**+1 corrects so that the origin square isn't included, even at idx 0
+	const uint64_t if_upper_half = if_ray_half & ~((1ULL << (movement_data.picked_square_idx + 1)) - 1);
+	const uint64_t if_lower_half = ~if_ray_half & ((1ULL << movement_data.picked_square_idx) - 1);
+	const uint64_t half_mask = if_upper_half | if_lower_half;
 
-	return determined_transposed_ray & determined_halving;
+	return mask_transposed_ray & half_mask; //intersected ray and valid half for the ray
 }
 
+
+//3.
 uint64_t MoveValidationSystem::diagonalTransformation(MovementData& movement_data, uint64_t full_ray)
 {
 	using enum rayTranspositionInfo::rays;
@@ -107,38 +123,58 @@ uint64_t MoveValidationSystem::diagonalTransformation(MovementData& movement_dat
 	return determined_transposing;
 }
 
-uint64_t MoveValidationSystem::nonDiagonalTransformation(MovementData& movement_data, uint64_t sel_transposed_ray, uint64_t full_ray)
+uint64_t MoveValidationSystem::nonDiagonalTransformation(MovementData& movement_data, uint64_t sel_ray_rotation, uint64_t full_ray)
 {
-	uint64_t if_transposition_mask = -(sel_transposed_ray == 0);
-	uint64_t determined_transposing = (if_transposition_mask & (movement_data.picked_square_idx % 8)) | (~if_transposition_mask & (movement_data.picked_square_idx / 8));
-	uint64_t transposed_ray = (if_transposition_mask & (full_ray << determined_transposing)) | (~if_transposition_mask & (full_ray << (determined_transposing * 8)));
+	/*
+	* transposes the ray to the origin of the piece
+	* % 8 handles horizontal shifts, used for a vertical ray
+	* / 8 handles vertical shifts, used for a horizontal ray
+	*/
 
-	return transposed_ray;
+	constexpr int CHESS_ROW = 8;
+
+	const uint64_t if_ray_rotation = -(sel_ray_rotation == 0);
+
+	//determine which ray shift gets used
+	const uint64_t x_axis_shift = ~if_ray_rotation & (movement_data.picked_square_idx / CHESS_ROW);
+	const uint64_t y_axis_shift = if_ray_rotation & (movement_data.picked_square_idx % CHESS_ROW);
+	const uint64_t transposition_type = x_axis_shift | y_axis_shift;
+
+	//move the ray to piece origin
+	const uint64_t move_vertical_ray = if_ray_rotation & (full_ray << transposition_type);
+	const uint64_t move_horizontal_ray = ~if_ray_rotation & (full_ray << (transposition_type * CHESS_ROW));
+	
+	//select and return the proper transposed ray
+	return move_vertical_ray | move_horizontal_ray;
 }
 
-uint64_t MoveValidationSystem::findEnemyBlockersHelper(MovementData& movement_data, uint64_t sel_ray_dir, uint64_t halved_ray)
+//1.
+uint64_t MoveValidationSystem::findEnemyBlockersHelper(MovementData& movement_data, uint64_t sel_ray_half, uint64_t directional_ray_mask)
 {
-	uint64_t found_blockers = halved_ray & movement_data.enemies;
-	uint64_t if_significant_bit_mask = -(sel_ray_dir == 0);
+	uint64_t found_blockers = directional_ray_mask & movement_data.enemies;
+	uint64_t if_significant_bit_mask = -(sel_ray_half == 0);
 	uint64_t determined_halving = (if_significant_bit_mask & (((found_blockers & (0ULL - found_blockers)) - 1) | (found_blockers & (0ULL - found_blockers)))) | (~if_significant_bit_mask & ~(std::bit_floor(found_blockers) - 1));
 
-	return determined_halving & halved_ray;
+	return determined_halving & directional_ray_mask;
 }
 
-uint64_t MoveValidationSystem::findAllyBlockersHelper(MovementData& movement_data, uint64_t sel_ray_dir, uint64_t halved_ray)
+//2.
+uint64_t MoveValidationSystem::findAllyBlockersHelper(MovementData& movement_data, uint64_t sel_ray_dir, uint64_t directional_ray_mask)
 {
-	uint64_t found_blockers = halved_ray & movement_data.allies;
+	uint64_t found_blockers = directional_ray_mask & movement_data.allies;
 	uint64_t if_significant_bit_mask = -(sel_ray_dir == 0);
 	uint64_t determined_halving = (if_significant_bit_mask & (((found_blockers & (0ULL - found_blockers)) - 1))) | (~if_significant_bit_mask & ~((std::bit_floor(found_blockers) - 1) | std::bit_floor(found_blockers)));
 
-	return determined_halving & halved_ray;
+	return determined_halving & directional_ray_mask;
 }
 
+
+//4.
 uint64_t MoveValidationSystem::pawnValidation(InitGameState::Board& board, MovementData& movement_data)
 {
 	using enum occupancyInfo::occupancy;
 
-	uint64_t pawnMask = 0;
+	uint64_t pawn_mask = 0;
 	uint64_t if_white = 0;
 	uint64_t if_black = 0;
 
@@ -160,7 +196,7 @@ uint64_t MoveValidationSystem::pawnValidation(InitGameState::Board& board, Movem
 									  (~if_init & if_black & ~if_occupied_first & ((1ULL << movement_data.picked_square_idx) >> 8))
 	;
 
-	pawnMask |= determine_regular_move;
+	pawn_mask |= determine_regular_move;
 
 	//handling wrap around for attacks
 	constexpr uint64_t not_a = 0xfefefefefefefefe;
@@ -172,12 +208,12 @@ uint64_t MoveValidationSystem::pawnValidation(InitGameState::Board& board, Movem
 							 (if_black & (board.occupancy[white] & (1ULL << movement_data.picked_square_idx) >> 9)))
 	;
 
-	pawnMask |= determine_atk;
+	pawn_mask |= determine_atk;
 
 	//en-passant
 	//pawn promotion
 
-	return pawnMask;
+	return pawn_mask;
 }
 
 //following functions have a board argument, because pawn validation required it, and all functions need same
@@ -255,22 +291,22 @@ uint64_t MoveValidationSystem::queenValidation(InitGameState::Board&, MovementDa
 
 uint64_t MoveValidationSystem::kingValidation(InitGameState::Board&, MovementData& movement_data)
 {
-	uint64_t kingMask = 0;
+	uint64_t king_mask = 0;
 
 	constexpr uint64_t not_a_file = ~0x1010101010101010;
 	constexpr uint64_t not_h_file = ~0x8080808080808080;
 
-	kingMask |= ((1ULL << movement_data.picked_square_idx) << 8) & ~movement_data.allies;
-	kingMask |= ((1ULL << movement_data.picked_square_idx) >> 8) & ~movement_data.allies;
-	kingMask |= ((1ULL << movement_data.picked_square_idx) << 1) & not_a_file & ~movement_data.allies;
-	kingMask |= ((1ULL << movement_data.picked_square_idx) >> 1) & not_h_file & ~movement_data.allies;
+	king_mask |= ((1ULL << movement_data.picked_square_idx) << 8) & ~movement_data.allies;
+	king_mask |= ((1ULL << movement_data.picked_square_idx) >> 8) & ~movement_data.allies;
+	king_mask |= ((1ULL << movement_data.picked_square_idx) << 1) & not_a_file & ~movement_data.allies;
+	king_mask |= ((1ULL << movement_data.picked_square_idx) >> 1) & not_h_file & ~movement_data.allies;
 
-	kingMask |= (((1ULL << movement_data.picked_square_idx) << 9) & not_a_file) & ~movement_data.allies;
-	kingMask |= (((1ULL << movement_data.picked_square_idx) << 7) & not_h_file) & ~movement_data.allies;
-	kingMask |= (((1ULL << movement_data.picked_square_idx) >> 9) & not_h_file) & ~movement_data.allies;
-	kingMask |= (((1ULL << movement_data.picked_square_idx) >> 7) & not_a_file) & ~movement_data.allies;
+	king_mask |= (((1ULL << movement_data.picked_square_idx) << 9) & not_a_file) & ~movement_data.allies;
+	king_mask |= (((1ULL << movement_data.picked_square_idx) << 7) & not_h_file) & ~movement_data.allies;
+	king_mask |= (((1ULL << movement_data.picked_square_idx) >> 9) & not_h_file) & ~movement_data.allies;
+	king_mask |= (((1ULL << movement_data.picked_square_idx) >> 7) & not_a_file) & ~movement_data.allies;
 
-	return kingMask;
+	return king_mask;
 }
 
 uint64_t MoveValidationSystem::validator(InitGameState::Board& board, MovementData& movement_data)
