@@ -84,3 +84,23 @@ uint64_t MoveValidationSystem::knightValidation(const MovementData& movement_dat
 
     // ... your bitwise math using 'knight' and 'not_allies' ...
 }
+
+better naming conventions:
+-don't describle what a variable does in all it's technicallity, ensure it fits into the context
+
+three types of 64 bit unsigned integers, to write better structured code:
+
+1. SELECTORS (Type 3: Pure 0x0 or 0xF... masks acting as 'if' statements)
+   -> Prefix: 'if_', 'sel_'
+   -> Examples: if_forward_dir, if_only_one_blocker, if_diagonal, sel_bitfield_option
+sel (selector) is similar to if, but sel has broader meaning and I use it to denote extraction from bitfields
+or if I find any other meaning later I'll wrap it under sel.
+if properly portrays control flow for me
+
+2. INTERMEDIARY STATE (Type 2: Bitmasks representing lines or shapes of squares)
+   -> Prefix: 'mask_'
+   -> Examples: mask_file_a
+
+3. GAME STATE BITBOARDS (Type 1: Bitmasks representing actual piece placements)
+   -> Prefix: 'bb_'
+   -> Examples: bb_enemies, bb_allies, bb_pawn_attacks
