@@ -2,48 +2,72 @@
 
 uint64_t MoveValidationSystem::universalRay(MovementData& movement_data, uint64_t direction_bitfield, uint64_t full_ray)
 {
-	uint64_t significant_bit_truth_mask = -(int64_t)(direction_bitfield & 0x01);
-	uint64_t transposition_truth_mask = -(int64_t)((direction_bitfield >> 1) & 0x01);
+	const uint64_t sel_ray_dir = -(int64_t)(direction_bitfield & 0x01);
+	const uint64_t sel_transposed_ray = -(int64_t)((direction_bitfield >> 1) & 0x01);
 
 	//find the appropriate half ray
-	uint64_t halved_ray = rayHalvingHelper(movement_data, &significant_bit_truth_mask, &transposition_truth_mask, &full_ray);
-	//adjust ray for enemy blockers
-	uint64_t ray_to_enemy_blockers = findEnemyBlockersHelper(movement_data, &significant_bit_truth_mask, &halved_ray);
-	//adjust ray for ally blockers
-	uint64_t ray_to_ally_blockers = findAllyBlockersHelper(movement_data, &significant_bit_truth_mask, &halved_ray);
+	const uint64_t directional_ray = rayHalvingHelper(movement_data, sel_ray_dir, sel_transposed_ray, full_ray);
 
-	// if blockers are both empty then result is halved ray
+	//adjust ray when enemy blockers are present
+	const uint64_t ray_to_enemy_blockers = findEnemyBlockersHelper(movement_data, sel_ray_dir, directional_ray);
+
+	//adjust ray when ally blockers are present
+	const uint64_t ray_to_ally_blockers = findAllyBlockersHelper(movement_data, sel_ray_dir, directional_ray);
+
+	// if blockers are both empty then result is a default halved ray
 	// if only one blocker exit than that blocker is the result
 	// if both blockers exist then result is the combination of the two
-	uint64_t if_ray_to_enemy_blockers = -(ray_to_enemy_blockers != 0);
-	uint64_t if_ray_to_ally_blockers = -(ray_to_ally_blockers != 0);
-	uint64_t if_only_one_blocker_exists = if_ray_to_enemy_blockers ^ if_ray_to_ally_blockers;
-	uint64_t if_both_blockers_exist = if_ray_to_enemy_blockers & if_ray_to_ally_blockers;
-	uint64_t if_no_path_forward = -(((halved_ray & movement_data.allies) != 0) && if_ray_to_ally_blockers == 0);
 
-	uint64_t universal_ray = 
-		(if_only_one_blocker_exists & ~if_no_path_forward & ray_to_enemy_blockers) |
-		(if_only_one_blocker_exists & ~if_no_path_forward & ray_to_ally_blockers)  |
-		(if_both_blockers_exist & (ray_to_enemy_blockers & ray_to_ally_blockers))  |
-		(~if_both_blockers_exist & ~if_only_one_blocker_exists & ~if_no_path_forward & halved_ray);
+	//there exist five possible states for how slider attack path is calculated:
+
+	/*
+	* enemy and ally blockers have to be combined, because individually they cannot calculate the exact stopping point
+	* 
+	* REGULAR CASES:
+	* in two possible cases a ray can encounter either enemy blockers or friendly blockers
+	* but both can also be present within the full ray, therein we have to intersect to see which one comes first
+	* because of that we need two auxiliary if selectors, that enforce whether one or two blockers exist within a single path
+	* a ray may not have any blockers, as such the default directional ray is the result
+	* 
+	* SPECIAL CASE:
+	* ray to allies defaults to 0 if a blocker is in front. 0 usually means there are no blockers, but here it instead
+	* provides a false positive. To solve this edge case an intersect with the directional ray and allies is made
+	* to isolate this specific instance. If allies are present yet ray detects 0, then a blocker can only be right in front.
+	*/
+
+	const uint64_t if_ray_to_enemy_blockers		= -(ray_to_enemy_blockers != 0);
+	const uint64_t if_ray_to_ally_blockers		= -(ray_to_ally_blockers != 0);
+	//auxiliary selectors
+	const uint64_t if_only_one_blocker_exists	= if_ray_to_enemy_blockers ^ if_ray_to_ally_blockers;
+	const uint64_t if_both_blockers_exist		= if_ray_to_enemy_blockers & if_ray_to_ally_blockers;
+	//special case
+	const uint64_t if_no_path_forward			= -(((directional_ray & movement_data.allies) != 0) && if_ray_to_ally_blockers == 0);
+
+	const uint64_t universal_ray = 
+		(if_only_one_blocker_exists & ~if_no_path_forward & ray_to_enemy_blockers) | //only enemy blockers
+		(if_only_one_blocker_exists & ~if_no_path_forward & ray_to_ally_blockers)  | //only ally blockers
+		(if_both_blockers_exist & (ray_to_enemy_blockers & ray_to_ally_blockers))  | //both blockers
+		(~if_both_blockers_exist & ~if_only_one_blocker_exists & ~if_no_path_forward & directional_ray); //full directional ray
 
 	return universal_ray;
 }
 
-uint64_t MoveValidationSystem::rayHalvingHelper(MovementData& movement_data, uint64_t* significant_bit_truth_mask, uint64_t* transposition_truth_mask, uint64_t* full_ray)
+uint64_t MoveValidationSystem::rayHalvingHelper(MovementData& movement_data, uint64_t sel_ray_dir, uint64_t sel_transposed_ray, uint64_t full_ray)
 {
 	using enum rayTranspositionInfo::rays;
 
-	uint64_t if_significant_bit_mask = -(int64_t)(*significant_bit_truth_mask == 0);
-	uint64_t if_diagonal = -((*full_ray == anti_diagonal) | (*full_ray == diagonal));
+	uint64_t if_significant_bit_mask = -(int64_t)(sel_ray_dir == 0);
+	uint64_t if_diagonal = -((full_ray == anti_diagonal) | (full_ray == diagonal));
 
 	uint64_t determined_transposed_ray = 0;
 	//replace this with a switch, if, lookup table maybe? just don't let it execute two functions like that
-	if (*full_ray == anti_diagonal || *full_ray == diagonal) {
+	if (full_ray == anti_diagonal || full_ray == diagonal) 
+	{
 		determined_transposed_ray = diagonalTransformation(movement_data, full_ray);
 	}
-	else {
-		determined_transposed_ray = nonDiagonalTransformation(movement_data, transposition_truth_mask, full_ray);
+	else 
+	{
+		determined_transposed_ray = nonDiagonalTransformation(movement_data, sel_transposed_ray, full_ray);
 	}
 
 	uint64_t determined_halving = (if_significant_bit_mask & ~((1ULL << (movement_data.picked_square_idx + 1)) - 1)) | (~if_significant_bit_mask & ((1ULL << movement_data.picked_square_idx) - 1));
@@ -51,12 +75,12 @@ uint64_t MoveValidationSystem::rayHalvingHelper(MovementData& movement_data, uin
 	return determined_transposed_ray & determined_halving;
 }
 
-uint64_t MoveValidationSystem::diagonalTransformation(MovementData& movement_data, uint64_t* full_ray)
+uint64_t MoveValidationSystem::diagonalTransformation(MovementData& movement_data, uint64_t full_ray)
 {
 	using enum rayTranspositionInfo::rays;
 
-	uint64_t if_right_starting_diagonal = -(*full_ray == anti_diagonal);
-	uint64_t if_left_starting_diagonal = -(*full_ray == diagonal);
+	uint64_t if_right_starting_diagonal = -(full_ray == anti_diagonal);
+	uint64_t if_left_starting_diagonal = -(full_ray == diagonal);
 
 	int rank = (int)(movement_data.picked_square_idx / 8);
 	int file = (int)(movement_data.picked_square_idx % 8);
@@ -74,41 +98,40 @@ uint64_t MoveValidationSystem::diagonalTransformation(MovementData& movement_dat
 	int safe_shift_3 = (opposite_distance) * 8;
 	int safe_shift_4 = (-opposite_distance) * 8;
 
-	uint64_t determined_transposing = (if_left_starting_diagonal & if_shift_1 & (*full_ray << safe_shift_1)) |
-		(if_left_starting_diagonal & if_shift_2 & (*full_ray >> safe_shift_2)) |
-		(if_right_starting_diagonal & if_shift_3 & (*full_ray << safe_shift_3)) |
-		(if_right_starting_diagonal & if_shift_4 & (*full_ray >> safe_shift_4)
+	uint64_t determined_transposing = (if_left_starting_diagonal & if_shift_1 & (full_ray << safe_shift_1)) |
+		(if_left_starting_diagonal & if_shift_2 & (full_ray >> safe_shift_2)) |
+		(if_right_starting_diagonal & if_shift_3 & (full_ray << safe_shift_3)) |
+		(if_right_starting_diagonal & if_shift_4 & (full_ray >> safe_shift_4)
 	);
 
 	return determined_transposing;
 }
 
-uint64_t MoveValidationSystem::nonDiagonalTransformation(MovementData& movement_data, uint64_t* transposition_truth_mask, uint64_t* full_ray)
+uint64_t MoveValidationSystem::nonDiagonalTransformation(MovementData& movement_data, uint64_t sel_transposed_ray, uint64_t full_ray)
 {
-	uint64_t if_transposition_mask = -(*transposition_truth_mask == 0);
+	uint64_t if_transposition_mask = -(sel_transposed_ray == 0);
 	uint64_t determined_transposing = (if_transposition_mask & (movement_data.picked_square_idx % 8)) | (~if_transposition_mask & (movement_data.picked_square_idx / 8));
-	uint64_t transposed_ray = (if_transposition_mask & (*full_ray << determined_transposing)) | (~if_transposition_mask & (*full_ray << (determined_transposing * 8)));
+	uint64_t transposed_ray = (if_transposition_mask & (full_ray << determined_transposing)) | (~if_transposition_mask & (full_ray << (determined_transposing * 8)));
 
 	return transposed_ray;
 }
 
-uint64_t MoveValidationSystem::findEnemyBlockersHelper(MovementData& movement_data, uint64_t* significant_bit_truth_mask, uint64_t* halved_ray)
+uint64_t MoveValidationSystem::findEnemyBlockersHelper(MovementData& movement_data, uint64_t sel_ray_dir, uint64_t halved_ray)
 {
-	uint64_t found_blockers = *halved_ray & movement_data.enemies;
-	uint64_t if_significant_bit_mask = -(*significant_bit_truth_mask == 0);
+	uint64_t found_blockers = halved_ray & movement_data.enemies;
+	uint64_t if_significant_bit_mask = -(sel_ray_dir == 0);
 	uint64_t determined_halving = (if_significant_bit_mask & (((found_blockers & (0ULL - found_blockers)) - 1) | (found_blockers & (0ULL - found_blockers)))) | (~if_significant_bit_mask & ~(std::bit_floor(found_blockers) - 1));
 
-	return determined_halving & *halved_ray;
+	return determined_halving & halved_ray;
 }
 
-uint64_t MoveValidationSystem::findAllyBlockersHelper(MovementData& movement_data, uint64_t* significant_bit_truth_mask, uint64_t* halved_ray)
+uint64_t MoveValidationSystem::findAllyBlockersHelper(MovementData& movement_data, uint64_t sel_ray_dir, uint64_t halved_ray)
 {
-
-	uint64_t found_blockers = *halved_ray & movement_data.allies;
-	uint64_t if_significant_bit_mask = -(*significant_bit_truth_mask == 0);
+	uint64_t found_blockers = halved_ray & movement_data.allies;
+	uint64_t if_significant_bit_mask = -(sel_ray_dir == 0);
 	uint64_t determined_halving = (if_significant_bit_mask & (((found_blockers & (0ULL - found_blockers)) - 1))) | (~if_significant_bit_mask & ~((std::bit_floor(found_blockers) - 1) | std::bit_floor(found_blockers)));
 
-	return determined_halving & *halved_ray;
+	return determined_halving & halved_ray;
 }
 
 uint64_t MoveValidationSystem::pawnValidation(InitGameState::Board& board, MovementData& movement_data)

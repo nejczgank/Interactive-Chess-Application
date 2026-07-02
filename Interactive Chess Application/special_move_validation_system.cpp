@@ -40,7 +40,7 @@ bool SpecialMoveValidationSystem::isKingCheck(InitGameState::Board& board, int c
 
 	//assign general movement state
 	movement_data.allies = board.occupancy[color];
-	int const king_bitboard = (int)board.pieces[piece[king]]; //converts uint64_t board representation to int num
+	int64_t const king_bitboard = (int64_t)board.pieces[piece[king]]; //converts uint64_t board representation to int64
 	movement_data.picked_square_idx = std::countr_zero(static_cast<uint64_t>(king_bitboard)); //converts board value num to index num
 
 	//add knight state, compute knight moves

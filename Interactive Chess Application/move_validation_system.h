@@ -16,11 +16,11 @@ public:
 	static uint64_t validator(InitGameState::Board&, MovementData&);
 private:
 	static uint64_t universalRay(MovementData&, uint64_t, uint64_t);
-	static uint64_t rayHalvingHelper(MovementData&, uint64_t*, uint64_t*, uint64_t*);
-	static uint64_t diagonalTransformation(MovementData&, uint64_t*);
-	static uint64_t nonDiagonalTransformation(MovementData&, uint64_t*, uint64_t*);
-	static uint64_t findEnemyBlockersHelper(MovementData&, uint64_t*, uint64_t*);
-	static uint64_t findAllyBlockersHelper(MovementData&, uint64_t*, uint64_t*);
+	static uint64_t rayHalvingHelper(MovementData&, uint64_t, uint64_t, uint64_t);
+	static uint64_t diagonalTransformation(MovementData&, uint64_t);
+	static uint64_t nonDiagonalTransformation(MovementData&, uint64_t, uint64_t);
+	static uint64_t findEnemyBlockersHelper(MovementData&, uint64_t, uint64_t);
+	static uint64_t findAllyBlockersHelper(MovementData&, uint64_t, uint64_t);
 	static uint64_t pawnValidation(InitGameState::Board&, MovementData&);
 	static uint64_t knightValidation(InitGameState::Board&, MovementData&);
 	static uint64_t rookValidation(InitGameState::Board&, MovementData&);
