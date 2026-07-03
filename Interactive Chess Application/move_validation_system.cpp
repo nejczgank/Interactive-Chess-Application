@@ -83,7 +83,7 @@ uint64_t MoveValidationSystem::rayHalvingHelper(MovementData& movement_data, uin
 	//**1ULL is at first idx. from there there are 63 possible shifts
 	//**+1 corrects so that the origin square isn't included, even at idx 0
 	const uint64_t IF_UPPER_HALF = IF_RAY_HALF & ~( (1ULL << (movement_data.picked_square_idx + 1) ) - 1);
-	const uint64_t IF_LOWER_HALF = ~IF_DIAGONAL & ( (1ULL << movement_data.picked_square_idx) - 1);
+	const uint64_t IF_LOWER_HALF = ~IF_RAY_HALF & ( (1ULL << movement_data.picked_square_idx) - 1);
 	const uint64_t HALF_MASK = IF_UPPER_HALF | IF_LOWER_HALF;
 
 	return transposed_ray_mask & HALF_MASK; //intersected ray and valid half for the ray, to provide direction
