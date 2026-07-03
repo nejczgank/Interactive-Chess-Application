@@ -2,17 +2,17 @@
 
 uint64_t MoveValidationSystem::universalRay(MovementData& movement_data, uint64_t direction_bitfield, uint64_t full_ray)
 {
-	const uint64_t sel_ray_half = -(int64_t)(direction_bitfield & 0x01);
-	const uint64_t sel_ray_rotation = -(int64_t)((direction_bitfield >> 1) & 0x01);
+	const uint64_t SEL_RAY_HALF		= -(int64_t)(direction_bitfield & 0x01);
+	const uint64_t SEL_RAY_ROTATION = -(int64_t)((direction_bitfield >> 1) & 0x01);
 
 	//find the appropriate half ray
-	const uint64_t directional_ray_mask = rayHalvingHelper(movement_data, sel_ray_half, sel_ray_rotation, full_ray);
+	const uint64_t DIRECTIONAL_RAY_MASK = rayHalvingHelper(movement_data, SEL_RAY_HALF, SEL_RAY_ROTATION, full_ray);
 
 	//adjust ray when enemy blockers are present
-	const uint64_t ray_to_enemy_blockers_mask = findEnemyBlockersHelper(movement_data, sel_ray_half, directional_ray_mask);
+	const uint64_t RAY_TO_ENEMY_BLOCKERS_MASK = findEnemyBlockersHelper(movement_data, SEL_RAY_HALF, DIRECTIONAL_RAY_MASK);
 
 	//adjust ray when ally blockers are present
-	const uint64_t ray_to_ally_blockers_mask = findAllyBlockersHelper(movement_data, sel_ray_half, directional_ray_mask);
+	const uint64_t RAY_TO_ALLY_BLOCKERS_MASK = findAllyBlockersHelper(movement_data, SEL_RAY_HALF, DIRECTIONAL_RAY_MASK);
 
 	// if blockers are both empty then result is a default halved ray
 	// if only one blocker exit than that blocker is the result
@@ -35,24 +35,24 @@ uint64_t MoveValidationSystem::universalRay(MovementData& movement_data, uint64_
 	* to isolate this specific instance. If allies are present yet ray detects 0, then a blocker can only be right in front.
 	*/
 
-	const uint64_t if_ray_to_enemy_blockers		= -(ray_to_enemy_blockers_mask != 0);
-	const uint64_t if_ray_to_ally_blockers		= -(ray_to_ally_blockers_mask != 0);
+	const uint64_t IF_RAY_TO_ENEMY_BLOCKERS		= -(RAY_TO_ENEMY_BLOCKERS_MASK != 0);
+	const uint64_t IF_RAY_TO_ALLY_BLOCKERS		= -(RAY_TO_ALLY_BLOCKERS_MASK != 0);
 	//auxiliary selectors
-	const uint64_t if_only_one_blocker_exists	= if_ray_to_enemy_blockers ^ if_ray_to_ally_blockers;
-	const uint64_t if_both_blockers_exist		= if_ray_to_enemy_blockers & if_ray_to_ally_blockers;
+	const uint64_t IF_ONLY_ONE_BLOCKER_EXISTS	= IF_RAY_TO_ENEMY_BLOCKERS ^ IF_RAY_TO_ALLY_BLOCKERS;
+	const uint64_t IF_BOTH_BLOCKERS_EXIST		= IF_RAY_TO_ENEMY_BLOCKERS & IF_RAY_TO_ALLY_BLOCKERS;
 	//special case
-	const uint64_t if_no_path_forward			= -(((directional_ray_mask & movement_data.allies) != 0) && if_ray_to_ally_blockers == 0);
+	const uint64_t IF_NO_PATH_FORWARD			= -( ( (DIRECTIONAL_RAY_MASK & movement_data.allies) != 0) && IF_RAY_TO_ALLY_BLOCKERS == 0);
 
-	const uint64_t universal_ray = 
-		(if_only_one_blocker_exists & ~if_no_path_forward & ray_to_enemy_blockers_mask) | //only enemy blockers
-		(if_only_one_blocker_exists & ~if_no_path_forward & ray_to_ally_blockers_mask)  | //only ally blockers
-		(if_both_blockers_exist & (ray_to_enemy_blockers_mask & ray_to_ally_blockers_mask))  | //both blockers
-		(~if_both_blockers_exist & ~if_only_one_blocker_exists & ~if_no_path_forward & directional_ray_mask); //full directional ray
+	const uint64_t UNIVERSAL_RAY_MASK = 
+		(IF_ONLY_ONE_BLOCKER_EXISTS & ~IF_NO_PATH_FORWARD & RAY_TO_ENEMY_BLOCKERS_MASK)						| //only enemy blockers
+		(IF_ONLY_ONE_BLOCKER_EXISTS & ~IF_NO_PATH_FORWARD & RAY_TO_ALLY_BLOCKERS_MASK)						| //only ally blockers
+		(IF_BOTH_BLOCKERS_EXIST & (RAY_TO_ENEMY_BLOCKERS_MASK & RAY_TO_ALLY_BLOCKERS_MASK) )				| //both blockers
+		(~IF_BOTH_BLOCKERS_EXIST & ~IF_ONLY_ONE_BLOCKER_EXISTS & ~IF_NO_PATH_FORWARD & DIRECTIONAL_RAY_MASK); //full directional ray
 
-	return universal_ray;
+	return UNIVERSAL_RAY_MASK;
 }
 
-uint64_t MoveValidationSystem::rayHalvingHelper(MovementData& movement_data, uint64_t sel_ray_half, uint64_t sel_ray_rotation, uint64_t full_ray)
+uint64_t MoveValidationSystem::rayHalvingHelper(MovementData& movement_data, uint64_t SEL_RAY_HALF, uint64_t SEL_RAY_ROTATION, uint64_t full_ray)
 {
 	/*
 	* a ray is initially constructed via full_ray, obtained from defined constants in ray_transposition_info
@@ -64,66 +64,89 @@ uint64_t MoveValidationSystem::rayHalvingHelper(MovementData& movement_data, uin
 	using enum rayTranspositionInfo::rays;
 
 	//isolating selection
-	const uint64_t if_ray_half = -(int64_t)(sel_ray_half == 0);
-	const uint64_t if_diagonal = -( (full_ray == anti_diagonal) | (full_ray == diagonal) );
+	const uint64_t IF_RAY_HALF = -(int64_t)(SEL_RAY_HALF == 0);
+	const uint64_t IF_DIAGONAL = -( (full_ray == anti_diagonal) | (full_ray == diagonal) );
 
-	uint64_t mask_transposed_ray = 0;
+	uint64_t transposed_ray_mask = 0;
 
 	//the implementation of the ray transformation mechanic varies, whether it's diagonal or nondiagonal
 	if (full_ray == anti_diagonal || full_ray == diagonal) 
 	{ 
-		mask_transposed_ray = diagonalTransformation(movement_data, full_ray);
+		transposed_ray_mask = diagonalTransformation(movement_data, full_ray);
 	}
 	else 
 	{
-		mask_transposed_ray = nonDiagonalTransformation(movement_data, sel_ray_rotation, full_ray);
+		transposed_ray_mask = nonDiagonalTransformation(movement_data, SEL_RAY_ROTATION, full_ray);
 	}
 
 	//ray halving creates a mask that intersects with full ray to isolate the specific direction
 	//**1ULL is at first idx. from there there are 63 possible shifts
 	//**+1 corrects so that the origin square isn't included, even at idx 0
-	const uint64_t if_upper_half = if_ray_half & ~((1ULL << (movement_data.picked_square_idx + 1)) - 1);
-	const uint64_t if_lower_half = ~if_ray_half & ((1ULL << movement_data.picked_square_idx) - 1);
-	const uint64_t half_mask = if_upper_half | if_lower_half;
+	const uint64_t IF_UPPER_HALF = IF_RAY_HALF & ~( (1ULL << (movement_data.picked_square_idx + 1) ) - 1);
+	const uint64_t IF_LOWER_HALF = ~IF_DIAGONAL & ( (1ULL << movement_data.picked_square_idx) - 1);
+	const uint64_t HALF_MASK = IF_UPPER_HALF | IF_LOWER_HALF;
 
-	return mask_transposed_ray & half_mask; //intersected ray and valid half for the ray
+	return transposed_ray_mask & HALF_MASK; //intersected ray and valid half for the ray, to provide direction
 }
 
-
-//3.
 uint64_t MoveValidationSystem::diagonalTransformation(MovementData& movement_data, uint64_t full_ray)
 {
+	/*
+	* here a diagonal or anti-diagonal ray gets transposed to the origin square
+	* both diagonal and anti-diagonal can shift either right or left, and all four approaches
+	* require their own logic
+	* **wrap-around, doesn't occur because shifting the ray up or down clips the excess bits
+	* 
+	* °  -> origin
+	* / -> diagonal
+	* 
+	* DIAGONAL (/):
+	* /° -> requires subtracting indexed file from rank
+	* °/ -> requires subtracting indexed rank from file
+	* 
+	* ANTI-DIAGONAL (\):
+	* **the most intuitive solution I could come up with was by observing the following:
+	* one-dimensionally, you subtract total distance by distance of origin,
+	* but two-dimensionally, things change:
+	* +1 change in in file responds to -1 change in diagonal ray rank, therefore
+	* 
+	* \° -> sum indexed ranks and files, then subtract by 7 (max distance)
+	* °\ -> sum indexed ranks and files, then subtract by 7 (max distance) and correct for negation
+	*/
+
 	using enum rayTranspositionInfo::rays;
 
-	uint64_t if_right_starting_diagonal = -(full_ray == anti_diagonal);
-	uint64_t if_left_starting_diagonal = -(full_ray == diagonal);
+	const int RANK = (int)(movement_data.picked_square_idx / 8);
+	const int FILE = (int)(movement_data.picked_square_idx % 8);
+	constexpr int VERTICAL_MOVE = 8;
+	constexpr int MAX_DISTANCE_IDX = 7;
 
-	int rank = (int)(movement_data.picked_square_idx / 8);
-	int file = (int)(movement_data.picked_square_idx % 8);
+	const int OPPOSITE_DISTANCE = (RANK + FILE) - MAX_DISTANCE_IDX;
 
-	uint64_t if_shift_1 = -((rank - file) >= 0);
-	uint64_t if_shift_2 = -((file - rank) >= 0);
+	const uint64_t IF_SHIFT_1 = -(int64_t)((RANK - FILE) >= 0);		//diagonal left	 - °/
+	const uint64_t IF_SHIFT_2 = -(int64_t)((FILE - RANK) >= 0);		//diagonal right - /°
+	const uint64_t IF_SHIFT_3 = -(int64_t)(OPPOSITE_DISTANCE >= 0);	//anti-diagonal right - \°
+	const uint64_t IF_SHIFT_4 = -(int64_t)(OPPOSITE_DISTANCE < 0);	//anti-diagonal left - °\
 
-	int opposite_distance = (rank + file) - 7;
+	const int SHIFT_1 = (RANK - FILE)		 * VERTICAL_MOVE;
+	const int SHIFT_2 = (FILE - RANK)		 * VERTICAL_MOVE;
+	const int SHIFT_3 = (OPPOSITE_DISTANCE)  * VERTICAL_MOVE;
+	const int SHIFT_4 = (-OPPOSITE_DISTANCE) * VERTICAL_MOVE;  //corrected for sum negation
 
-	uint64_t if_shift_3 = -(opposite_distance >= 0);
-	uint64_t if_shift_4 = -(opposite_distance < 0);
+	const uint64_t IF_DIAGONAL		= -(full_ray == diagonal);
+	const uint64_t IF_ANTI_DIAGONAL = -(full_ray == anti_diagonal);
 
-	int safe_shift_1 = (rank - file) * 8;
-	int safe_shift_2 = (file - rank) * 8;
-	int safe_shift_3 = (opposite_distance) * 8;
-	int safe_shift_4 = (-opposite_distance) * 8;
-
-	uint64_t determined_transposing = (if_left_starting_diagonal & if_shift_1 & (full_ray << safe_shift_1)) |
-		(if_left_starting_diagonal & if_shift_2 & (full_ray >> safe_shift_2)) |
-		(if_right_starting_diagonal & if_shift_3 & (full_ray << safe_shift_3)) |
-		(if_right_starting_diagonal & if_shift_4 & (full_ray >> safe_shift_4)
+	const uint64_t TRANSPOSED_DIAGONAL_MASK = 
+		(IF_DIAGONAL	  & IF_SHIFT_1 & (full_ray << SHIFT_1) ) |
+		(IF_DIAGONAL	  & IF_SHIFT_2 & (full_ray >> SHIFT_2) ) |
+		(IF_ANTI_DIAGONAL & IF_SHIFT_3 & (full_ray << SHIFT_3) ) |
+		(IF_ANTI_DIAGONAL & IF_SHIFT_4 & (full_ray >> SHIFT_4)
 	);
 
-	return determined_transposing;
+	return TRANSPOSED_DIAGONAL_MASK;
 }
 
-uint64_t MoveValidationSystem::nonDiagonalTransformation(MovementData& movement_data, uint64_t sel_ray_rotation, uint64_t full_ray)
+uint64_t MoveValidationSystem::nonDiagonalTransformation(MovementData& movement_data, uint64_t SEL_RAY_ROTATION, uint64_t full_ray)
 {
 	/*
 	* transposes the ray to the origin of the piece
@@ -133,19 +156,19 @@ uint64_t MoveValidationSystem::nonDiagonalTransformation(MovementData& movement_
 
 	constexpr int CHESS_ROW = 8;
 
-	const uint64_t if_ray_rotation = -(sel_ray_rotation == 0);
+	const uint64_t IF_RAY_ROTATION = -(SEL_RAY_ROTATION == 0);
 
 	//determine which ray shift gets used
-	const uint64_t x_axis_shift = ~if_ray_rotation & (movement_data.picked_square_idx / CHESS_ROW);
-	const uint64_t y_axis_shift = if_ray_rotation & (movement_data.picked_square_idx % CHESS_ROW);
-	const uint64_t transposition_type = x_axis_shift | y_axis_shift;
+	const uint64_t X_AXIS_SHIFT = ~IF_RAY_ROTATION & (movement_data.picked_square_idx / CHESS_ROW);
+	const uint64_t Y_AXIS_SHIFT = IF_RAY_ROTATION & (movement_data.picked_square_idx % CHESS_ROW);
+	const uint64_t TRANSPOSITION_TYPE = X_AXIS_SHIFT | Y_AXIS_SHIFT;
 
 	//move the ray to piece origin
-	const uint64_t move_vertical_ray = if_ray_rotation & (full_ray << transposition_type);
-	const uint64_t move_horizontal_ray = ~if_ray_rotation & (full_ray << (transposition_type * CHESS_ROW));
+	const uint64_t MOVE_VERTICAL_RAY_MASK = IF_RAY_ROTATION & (full_ray << TRANSPOSITION_TYPE);
+	const uint64_t MOVE_HORIZONTAL_RAY_MASK = ~IF_RAY_ROTATION & (full_ray << (TRANSPOSITION_TYPE * CHESS_ROW));
 	
 	//select and return the proper transposed ray
-	return move_vertical_ray | move_horizontal_ray;
+	return MOVE_VERTICAL_RAY_MASK | MOVE_HORIZONTAL_RAY_MASK;
 }
 
 //1.
@@ -169,7 +192,7 @@ uint64_t MoveValidationSystem::findAllyBlockersHelper(MovementData& movement_dat
 }
 
 
-//4.
+//3.
 uint64_t MoveValidationSystem::pawnValidation(InitGameState::Board& board, MovementData& movement_data)
 {
 	using enum occupancyInfo::occupancy;
@@ -222,20 +245,20 @@ uint64_t MoveValidationSystem::knightValidation(InitGameState::Board&, MovementD
 {
 	uint64_t knight_mask = 0;
 
-	constexpr uint64_t not_a = 0xfefefefefefefefe;
-	constexpr uint64_t not_b = 0xfdfdfdfdfdfdfdfd;
-	constexpr uint64_t not_g = 0xbfbfbfbfbfbfbfbf;
-	constexpr uint64_t not_h = 0x7f7f7f7f7f7f7f7f;
+	constexpr uint64_t NOT_A_MASK = 0xfefefefefefefefe;
+	constexpr uint64_t NOT_B_MASK = 0xfdfdfdfdfdfdfdfd;
+	constexpr uint64_t NOT_G_MASK = 0xbfbfbfbfbfbfbfbf;
+	constexpr uint64_t NOT_H_MASK = 0x7f7f7f7f7f7f7f7f;
 
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & not_h) << 17 & ~movement_data.allies;
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & not_g & not_h) << 10 & ~movement_data.allies;
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & not_g & not_h) >> 6 & ~movement_data.allies;
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & not_h) >> 15 & ~movement_data.allies;
+	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_H_MASK) << 17 & ~movement_data.allies;
+	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_G_MASK & NOT_H_MASK) << 10 & ~movement_data.allies;
+	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_G_MASK & NOT_H_MASK) >> 6 & ~movement_data.allies;
+	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_H_MASK) >> 15 & ~movement_data.allies;
 
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & not_a) >> 17 & ~movement_data.allies;
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & not_b & not_a) >> 10 & ~movement_data.allies;
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & not_b & not_a) << 6 & ~movement_data.allies;
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & not_a) << 15 & ~movement_data.allies;
+	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_A_MASK) >> 17 & ~movement_data.allies;
+	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_B_MASK & NOT_A_MASK) >> 10 & ~movement_data.allies;
+	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_B_MASK & NOT_A_MASK) << 6 & ~movement_data.allies;
+	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_A_MASK) << 15 & ~movement_data.allies;
 
 	return knight_mask;
 }
@@ -293,18 +316,18 @@ uint64_t MoveValidationSystem::kingValidation(InitGameState::Board&, MovementDat
 {
 	uint64_t king_mask = 0;
 
-	constexpr uint64_t not_a_file = ~0x1010101010101010;
-	constexpr uint64_t not_h_file = ~0x8080808080808080;
+	constexpr uint64_t NOT_A_FILE = ~0x1010101010101010;
+	constexpr uint64_t NOT_H_FILE = ~0x8080808080808080;
 
 	king_mask |= ((1ULL << movement_data.picked_square_idx) << 8) & ~movement_data.allies;
 	king_mask |= ((1ULL << movement_data.picked_square_idx) >> 8) & ~movement_data.allies;
-	king_mask |= ((1ULL << movement_data.picked_square_idx) << 1) & not_a_file & ~movement_data.allies;
-	king_mask |= ((1ULL << movement_data.picked_square_idx) >> 1) & not_h_file & ~movement_data.allies;
+	king_mask |= ((1ULL << movement_data.picked_square_idx) << 1) & NOT_A_FILE & ~movement_data.allies;
+	king_mask |= ((1ULL << movement_data.picked_square_idx) >> 1) & NOT_H_FILE & ~movement_data.allies;
 
-	king_mask |= (((1ULL << movement_data.picked_square_idx) << 9) & not_a_file) & ~movement_data.allies;
-	king_mask |= (((1ULL << movement_data.picked_square_idx) << 7) & not_h_file) & ~movement_data.allies;
-	king_mask |= (((1ULL << movement_data.picked_square_idx) >> 9) & not_h_file) & ~movement_data.allies;
-	king_mask |= (((1ULL << movement_data.picked_square_idx) >> 7) & not_a_file) & ~movement_data.allies;
+	king_mask |= (((1ULL << movement_data.picked_square_idx) << 9) & NOT_A_FILE) & ~movement_data.allies;
+	king_mask |= (((1ULL << movement_data.picked_square_idx) << 7) & NOT_H_FILE) & ~movement_data.allies;
+	king_mask |= (((1ULL << movement_data.picked_square_idx) >> 9) & NOT_H_FILE) & ~movement_data.allies;
+	king_mask |= (((1ULL << movement_data.picked_square_idx) >> 7) & NOT_A_FILE) & ~movement_data.allies;
 
 	return king_mask;
 }
