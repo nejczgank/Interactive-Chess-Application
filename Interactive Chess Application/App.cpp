@@ -70,7 +70,6 @@ int main() {
 	//cleanup the code
 	//uint tests
 
-	int clear_io;
-	std::cin >> clear_io;
+	std::cin.ignore();
 	return 0;
 }

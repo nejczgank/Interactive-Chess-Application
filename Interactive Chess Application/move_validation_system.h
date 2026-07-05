@@ -10,6 +10,7 @@
 #include "occupancy_info.h"
 #include "ray_transposition_info.h"
 #include "ray_direction_info.h"
+#include "which_player_info.h"
 
 class MoveValidationSystem {
 public:
@@ -19,8 +20,7 @@ private:
 	static uint64_t rayHalvingHelper(MovementData&, uint64_t, uint64_t, uint64_t);
 	static uint64_t diagonalTransformation(MovementData&, uint64_t);
 	static uint64_t nonDiagonalTransformation(MovementData&, uint64_t, uint64_t);
-	static uint64_t findEnemyBlockersHelper(MovementData&, uint64_t, uint64_t);
-	static uint64_t findAllyBlockersHelper(MovementData&, uint64_t, uint64_t);
+	static uint64_t findBlockersHelper(MovementData&, uint64_t, uint64_t, whichPlayerInfo::playerInfo);
 	static uint64_t pawnValidation(InitGameState::Board&, MovementData&);
 	static uint64_t knightValidation(InitGameState::Board&, MovementData&);
 	static uint64_t rookValidation(InitGameState::Board&, MovementData&);

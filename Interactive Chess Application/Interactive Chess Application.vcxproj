@@ -143,6 +143,7 @@
     <ClInclude Include="bitwise_move_validation.h" />
     <ClInclude Include="board_updating_system.h" />
     <ClInclude Include="display.h" />
+    <ClInclude Include="which_player_info.h" />
     <ClInclude Include="ray_transposition_info.h" />
     <ClInclude Include="move_info.h" />
     <ClInclude Include="movement_data_system.h" />
