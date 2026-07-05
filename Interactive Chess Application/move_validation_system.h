@@ -10,6 +10,7 @@
 #include "occupancy_info.h"
 #include "ray_transposition_info.h"
 #include "ray_direction_info.h"
+#include "piece_info.h"
 #include "which_player_info.h"
 
 class MoveValidationSystem {
