@@ -173,32 +173,6 @@ uint64_t MoveValidationSystem::nonDiagonalTransformation(MovementData& movement_
 	return MOVE_VERTICAL_RAY_MASK | MOVE_HORIZONTAL_RAY_MASK;
 }
 
-//uint64_t MoveValidationSystem::findEnemyBlockersHelper(MovementData& movement_data, uint64_t SEL_RAY_HALF, uint64_t DIRECTIONAL_RAY_MASK)
-//{
-//	/*
-//	* previous logic applied to halving the ray is applied to blockers as well
-//	* blockers are found via intersecting enemies and directional ray
-//	* then, depending on direction the upper or lower half must be formed, by isolating and tailing the blockers
-//	* this half intersects with the directional ray, to exclude pieces behind the first found blocker
-//	* **this function deals with enemies, and first enemy blocker can always be overtaken
-//	* **lower half must correct for the lowest blocker bit, since tailing excludes the blocker
-//	* **if the lowest blocker clips out at the MSB, the result is 0 - 1, which overflows and turns the entire board on.
-//	*   this result is desired.
-//	*/
-//
-//	const uint64_t BLOCKER_MASK = DIRECTIONAL_RAY_MASK & movement_data.enemies;
-//	const uint64_t LOWEST_BLOCKER_BIT_MASK = BLOCKER_MASK & (0ULL - BLOCKER_MASK);
-//	const uint64_t HIGHEST_BLOCKER_BIT_MASK = std::bit_floor(BLOCKER_MASK);
-//
-//	const uint64_t LOWER_HALF_MASK = (LOWEST_BLOCKER_BIT_MASK << 1) - 1;
-//	const uint64_t UPPER_HALF_MASK = ~(HIGHEST_BLOCKER_BIT_MASK - 1);
-//
-//	const uint64_t IF_RAY_HALF = -(SEL_RAY_HALF == 0);
-//	const uint64_t HALF_MASK = (IF_RAY_HALF & LOWER_HALF_MASK) | (~IF_RAY_HALF & UPPER_HALF_MASK);
-//
-//	return HALF_MASK & DIRECTIONAL_RAY_MASK;
-//}
-
 uint64_t MoveValidationSystem::findBlockersHelper(MovementData& movement_data, uint64_t SEL_RAY_HALF, uint64_t DIRECTIONAL_RAY_MASK, whichPlayerInfo::playerInfo PLAYER)
 {
 	/*
@@ -218,6 +192,7 @@ uint64_t MoveValidationSystem::findBlockersHelper(MovementData& movement_data, u
 	const uint64_t HIGHEST_BLOCKER_BIT_MASK = std::bit_floor(BLOCKER_MASK);
 
 	//tailing isolated bits
+	//**inclusion requires a shift, negation reverses the need for a shift
 	const uint64_t LOWER_HALF_INC_MASK = (LOWEST_BLOCKER_BIT_MASK << 1) - 1;
 	const uint64_t LOWER_HALF_EXC_MASK = LOWEST_BLOCKER_BIT_MASK - 1;
 	const uint64_t UPPER_HALF_INC_MASK = ~(HIGHEST_BLOCKER_BIT_MASK - 1);
@@ -235,57 +210,88 @@ uint64_t MoveValidationSystem::findBlockersHelper(MovementData& movement_data, u
 	return HALF_MASK & DIRECTIONAL_RAY_MASK;
 }
 
-
-//uint64_t MoveValidationSystem::findAllyBlockersHelper(MovementData& movement_data, uint64_t sel_ray_dir, uint64_t directional_ray_mask)
-//{
-//	uint64_t found_blockers = directional_ray_mask & movement_data.allies;
-//	uint64_t if_significant_bit_mask = -(sel_ray_dir == 0);
-//	uint64_t determined_halving = (if_significant_bit_mask & (((found_blockers & (0ULL - found_blockers)) - 1))) | (~if_significant_bit_mask & ~((std::bit_floor(found_blockers) - 1) | std::bit_floor(found_blockers)));
-//
-//	return determined_halving & directional_ray_mask;
-//}
-
-
-//3.
+//1.
 uint64_t MoveValidationSystem::pawnValidation(InitGameState::Board& board, MovementData& movement_data)
 {
 	using enum occupancyInfo::occupancy;
+	using enum pieceInfo::piece;
 
-	uint64_t pawn_mask = 0;
-	uint64_t if_white = 0;
-	uint64_t if_black = 0;
+	constexpr int RANKS = 8;
+	constexpr int INIT_WHITE_PAWNS_RANK = 1;
+	constexpr int INIT_BLACK_PAWNS_RANK = 6;
 
-	if (movement_data.picked_piece_type == 0) { if_white = ~0ULL; }
-	if (movement_data.picked_piece_type == 6) { if_black = ~0ULL; }
+	const uint64_t IF_WHITE = -(int64_t)(movement_data.picked_piece_type == white_pawn);
+	const uint64_t IF_BLACK = -(int64_t)(movement_data.picked_piece_type == black_pawn);
 
-	uint64_t determine_init_pos = (if_white & 0x1) | (if_black & 0x6);
-	uint64_t test = movement_data.picked_square_idx / 8;
-	uint64_t if_init = -(int64_t)((movement_data.picked_square_idx / 8) == determine_init_pos);
+	//save the initial pawn rank of the current selected pieces color, 
+	//evaluate if the selected pieces rank corresponds to the appropriate color coded initial pawn rank
+	const uint64_t INIT_POS_MASK = (IF_WHITE & (uint64_t)INIT_WHITE_PAWNS_RANK) | (IF_BLACK & (uint64_t)INIT_BLACK_PAWNS_RANK);
+	const int64_t RANK_EVAL = (movement_data.picked_square_idx / RANKS) == (int64_t)INIT_POS_MASK;
+	uint64_t IF_INIT = -RANK_EVAL;	
 
 	//preventing progression to occupied squares (regular move)
-	uint64_t if_occupied_first = -(int64_t)((if_white & (board.occupancy[all] & (1ULL << (movement_data.picked_square_idx + 8)))) | (if_black & (board.occupancy[all] & ((1ULL << movement_data.picked_square_idx) >> 8))));
+	//**working for both colors
+	constexpr uint64_t VERT_ADJUST = 8;
+
+	const uint64_t REGULAR_WHITE_MOVE_MASK = (1ULL << (movement_data.picked_square_idx + VERT_ADJUST));
+	const uint64_t REGULAR_BLACK_MOVE_MASK = ((1ULL << movement_data.picked_square_idx) >> VERT_ADJUST);
+	const uint64_t REGULAR_WHITE_MOVE_BLOCKED_MASK = board.occupancy[all] & REGULAR_WHITE_MOVE_MASK;
+	const uint64_t REGULAR_BLACK_MOVE_BLOCKED_MASK = board.occupancy[all] & REGULAR_BLACK_MOVE_MASK;
+	const uint64_t REGULAR_BLOCKED_MASK = (IF_WHITE & REGULAR_WHITE_MOVE_BLOCKED_MASK) | (IF_BLACK & REGULAR_BLACK_MOVE_BLOCKED_MASK);
+	const uint64_t IF_OCCUPIED_FIRST = -(int64_t)(REGULAR_BLOCKED_MASK != 0);
+
+	//uint64_t if_occupied_first = -(int64_t)((IF_WHITE & (board.occupancy[all] & (1ULL << (movement_data.picked_square_idx + 8)))) | (IF_BLACK & (board.occupancy[all] & ((1ULL << movement_data.picked_square_idx) >> 8))));
 	//if_occupied_second shifts two vertical bits, meaning the determine_regular_move doesn't require extra if_occupied_first check
-	uint64_t if_occupied_second = -(int64_t)((if_white & (board.occupancy[all] & (0x101ULL << (movement_data.picked_square_idx + 8)))) | (if_black & (board.occupancy[all] & ((0x101ULL << movement_data.picked_square_idx) >> 16))));
 
-	uint64_t determine_regular_move = (if_init & if_white & ~if_occupied_second & (0x101ULL << (movement_data.picked_square_idx + 8)))   |
-									  (~if_init & if_white & ~if_occupied_first & (1ULL << (movement_data.picked_square_idx + 8)))       |
-									  (if_init & if_black & ~if_occupied_second & ((0x101ULL << movement_data.picked_square_idx) >> 16)) |
-									  (~if_init & if_black & ~if_occupied_first & ((1ULL << movement_data.picked_square_idx) >> 8))
+	//preventing progression to occupied squares (initial double move)
+	//**working for both colors
+	constexpr uint64_t TWO_SQUARES = 0X101ULL;
+	constexpr uint64_t DOUBLE_VERT_ADJUST = 16;
+
+	const uint64_t DOUBLE_WHITE_MOVE_MASK = (TWO_SQUARES << (movement_data.picked_square_idx + VERT_ADJUST));
+	const uint64_t DOUBLE_BLACK_MOVE_MASK = ((TWO_SQUARES << movement_data.picked_square_idx) >> DOUBLE_VERT_ADJUST);
+	const uint64_t DOUBLE_WHITE_MOVE_BLOCKED_MASK = board.occupancy[all] & DOUBLE_WHITE_MOVE_MASK;
+	const uint64_t DOUBLE_BLACK_MOVE_BLOCKED_MASK = board.occupancy[all] & DOUBLE_BLACK_MOVE_MASK;
+	const uint64_t DOUBLE_BLOCKED_MASK = (IF_WHITE & DOUBLE_WHITE_MOVE_BLOCKED_MASK) | (IF_BLACK & DOUBLE_BLACK_MOVE_BLOCKED_MASK);
+	const uint64_t IF_OCCUPIED_INIT = -(int64_t)(DOUBLE_BLOCKED_MASK != 0);
+
+	//uint64_t if_occupied_second = -(int64_t)((IF_WHITE & (board.occupancy[all] & (0x101ULL << (movement_data.picked_square_idx + 8)))) | (IF_BLACK & (board.occupancy[all] & ((0x101ULL << movement_data.picked_square_idx) >> 16))));
+
+	const uint64_t ADVANCE_MASK = 
+		(IF_INIT  & IF_WHITE & ~IF_OCCUPIED_FIRST & ~IF_OCCUPIED_INIT  & DOUBLE_WHITE_MOVE_MASK)  |
+		(~IF_INIT & IF_WHITE & ~IF_OCCUPIED_FIRST  & REGULAR_WHITE_MOVE_MASK) |
+		(IF_INIT  & IF_BLACK & ~IF_OCCUPIED_FIRST & ~IF_OCCUPIED_INIT  & DOUBLE_BLACK_MOVE_MASK)  |
+		(~IF_INIT & IF_BLACK & ~IF_OCCUPIED_FIRST  & REGULAR_BLACK_MOVE_MASK)
 	;
 
-	pawn_mask |= determine_regular_move;
+	/*const uint64_t ADVANCE_MASK =
+		(IF_INIT & IF_WHITE & ~IF_OCCUPIED_INIT & (TWO_SQUARES << (movement_data.picked_square_idx + VERT_ADJUST))) |
+		(~IF_INIT & IF_WHITE & ~IF_OCCUPIED_FIRST & (1ULL << (movement_data.picked_square_idx + VERT_ADJUST))) |
+		(IF_INIT & IF_BLACK & ~IF_OCCUPIED_INIT & ((TWO_SQUARES << movement_data.picked_square_idx) >> DOUBLE_VERT_ADJUST)) |
+		(~IF_INIT & IF_BLACK & ~IF_OCCUPIED_FIRST & ((1ULL << movement_data.picked_square_idx) >> DOUBLE_VERT_ADJUST))
+	;*/
 
-	//handling wrap around for attacks
-	constexpr uint64_t not_a = 0xfefefefefefefefe;
-	constexpr uint64_t not_h = 0x7f7f7f7f7f7f7f7f;
+	uint64_t pawn_mask = 0;
+	pawn_mask |= ADVANCE_MASK;
 
-	uint64_t determine_atk = (if_white & not_h & (board.occupancy[black] & (1ULL << (movement_data.picked_square_idx + 7)))) |
-							 (if_white & (board.occupancy[black] & (1ULL << (movement_data.picked_square_idx + 9))) |
-							 (if_black & not_a & (board.occupancy[white] & ((1ULL << movement_data.picked_square_idx) >> 7))) |
-							 (if_black & (board.occupancy[white] & (1ULL << movement_data.picked_square_idx) >> 9)))
+	//ATTACKS HANDLING
+	constexpr uint64_t NOT_A = 0xfefefefefefefefe;
+	constexpr uint64_t NOT_H = 0x7f7f7f7f7f7f7f7f;
+
+	constexpr uint64_t RIGHT_ATTACK = 9;
+	constexpr uint64_t LEFT_ATTACK = 7;
+
+	//regular attacks with handled wrap around
+	//CHANGED 2ND: ADDED NOT_A. CHANGED 4TH: ADDED NOT_H
+	//CHANGED PARANTHESES
+	const uint64_t REGULAR_ATTACK_MASK = 
+		(IF_WHITE & NOT_H & (board.occupancy[black] & (1ULL << (movement_data.picked_square_idx + LEFT_ATTACK))))   |
+		(IF_WHITE &	NOT_A & (board.occupancy[black] & (1ULL << (movement_data.picked_square_idx + RIGHT_ATTACK))))  |
+		(IF_BLACK & NOT_A & (board.occupancy[white] & ((1ULL << movement_data.picked_square_idx) >> LEFT_ATTACK)))  |
+		(IF_BLACK &	NOT_H & (board.occupancy[white] & ((1ULL << movement_data.picked_square_idx) >> RIGHT_ATTACK)))
 	;
 
-	pawn_mask |= determine_atk;
+	pawn_mask |= REGULAR_ATTACK_MASK;
 
 	//en-passant
 	//pawn promotion
@@ -304,15 +310,25 @@ uint64_t MoveValidationSystem::knightValidation(InitGameState::Board&, MovementD
 	constexpr uint64_t NOT_G_MASK = 0xbfbfbfbfbfbfbfbf;
 	constexpr uint64_t NOT_H_MASK = 0x7f7f7f7f7f7f7f7f;
 
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_H_MASK) << 17 & ~movement_data.allies;
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_G_MASK & NOT_H_MASK) << 10 & ~movement_data.allies;
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_G_MASK & NOT_H_MASK) >> 6 & ~movement_data.allies;
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_H_MASK) >> 15 & ~movement_data.allies;
+	constexpr int UP_RIGHT = 17;
+	constexpr int RIGHT_UP = 10;
+	constexpr int RIGHT_DOWN = 6;
+	constexpr int DOWN_RIGHT = 15;
 
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_A_MASK) >> 17 & ~movement_data.allies;
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_B_MASK & NOT_A_MASK) >> 10 & ~movement_data.allies;
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_B_MASK & NOT_A_MASK) << 6 & ~movement_data.allies;
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_A_MASK) << 15 & ~movement_data.allies;
+	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_H_MASK) << UP_RIGHT & ~movement_data.allies;
+	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_G_MASK & NOT_H_MASK) << RIGHT_UP & ~movement_data.allies;
+	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_G_MASK & NOT_H_MASK) >> RIGHT_DOWN & ~movement_data.allies;
+	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_H_MASK) >> DOWN_RIGHT & ~movement_data.allies;
+
+	constexpr int DOWN_LEFT = 17;
+	constexpr int LEFT_DOWN = 10;
+	constexpr int LEFT_UP = 6;
+	constexpr int UP_LEFT = 15;
+
+	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_A_MASK) >> DOWN_LEFT & ~movement_data.allies;
+	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_B_MASK & NOT_A_MASK) >> LEFT_DOWN & ~movement_data.allies;
+	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_B_MASK & NOT_A_MASK) << LEFT_UP & ~movement_data.allies;
+	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_A_MASK) << UP_LEFT & ~movement_data.allies;
 
 	return knight_mask;
 }
