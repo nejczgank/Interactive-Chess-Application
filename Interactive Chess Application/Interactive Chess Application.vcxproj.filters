@@ -131,6 +131,9 @@
     <ClInclude Include="ray_direction_info.h">
       <Filter>Header Files\Namespaces</Filter>
     </ClInclude>
+    <ClInclude Include="which_player_info.h">
+      <Filter>Header Files\Namespaces</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="findings.md">

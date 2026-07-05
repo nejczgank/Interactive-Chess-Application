@@ -2,6 +2,8 @@
 
 uint64_t MoveValidationSystem::universalRay(MovementData& movement_data, uint64_t direction_bitfield, uint64_t full_ray)
 {
+	using enum whichPlayerInfo::playerInfo;
+
 	const uint64_t SEL_RAY_HALF		= -(int64_t)(direction_bitfield & 0x01); //0 - lsb, 1 - msb
 	const uint64_t SEL_RAY_ROTATION = -(int64_t)((direction_bitfield >> 1) & 0x01); //0 - horizontal, 1 - vertical
 
@@ -9,10 +11,10 @@ uint64_t MoveValidationSystem::universalRay(MovementData& movement_data, uint64_
 	const uint64_t DIRECTIONAL_RAY_MASK = rayHalvingHelper(movement_data, SEL_RAY_HALF, SEL_RAY_ROTATION, full_ray);
 
 	//adjust ray when enemy blockers are present
-	const uint64_t RAY_TO_ENEMY_BLOCKERS_MASK = findEnemyBlockersHelper(movement_data, SEL_RAY_HALF, DIRECTIONAL_RAY_MASK);
+	const uint64_t RAY_TO_ENEMY_BLOCKERS_MASK = findBlockersHelper(movement_data, SEL_RAY_HALF, DIRECTIONAL_RAY_MASK, enemy);
 
 	//adjust ray when ally blockers are present
-	const uint64_t RAY_TO_ALLY_BLOCKERS_MASK = findAllyBlockersHelper(movement_data, SEL_RAY_HALF, DIRECTIONAL_RAY_MASK);
+	const uint64_t RAY_TO_ALLY_BLOCKERS_MASK = findBlockersHelper(movement_data, SEL_RAY_HALF, DIRECTIONAL_RAY_MASK, ally);
 
 	// if blockers are both empty then result is a default halved ray
 	// if only one blocker exit than that blocker is the result
@@ -171,25 +173,61 @@ uint64_t MoveValidationSystem::nonDiagonalTransformation(MovementData& movement_
 	return MOVE_VERTICAL_RAY_MASK | MOVE_HORIZONTAL_RAY_MASK;
 }
 
-uint64_t MoveValidationSystem::findEnemyBlockersHelper(MovementData& movement_data, uint64_t SEL_RAY_HALF, uint64_t DIRECTIONAL_RAY_MASK)
+//uint64_t MoveValidationSystem::findEnemyBlockersHelper(MovementData& movement_data, uint64_t SEL_RAY_HALF, uint64_t DIRECTIONAL_RAY_MASK)
+//{
+//	/*
+//	* previous logic applied to halving the ray is applied to blockers as well
+//	* blockers are found via intersecting enemies and directional ray
+//	* then, depending on direction the upper or lower half must be formed, by isolating and tailing the blockers
+//	* this half intersects with the directional ray, to exclude pieces behind the first found blocker
+//	* **this function deals with enemies, and first enemy blocker can always be overtaken
+//	* **lower half must correct for the lowest blocker bit, since tailing excludes the blocker
+//	* **if the lowest blocker clips out at the MSB, the result is 0 - 1, which overflows and turns the entire board on.
+//	*   this result is desired.
+//	*/
+//
+//	const uint64_t BLOCKER_MASK = DIRECTIONAL_RAY_MASK & movement_data.enemies;
+//	const uint64_t LOWEST_BLOCKER_BIT_MASK = BLOCKER_MASK & (0ULL - BLOCKER_MASK);
+//	const uint64_t HIGHEST_BLOCKER_BIT_MASK = std::bit_floor(BLOCKER_MASK);
+//
+//	const uint64_t LOWER_HALF_MASK = (LOWEST_BLOCKER_BIT_MASK << 1) - 1;
+//	const uint64_t UPPER_HALF_MASK = ~(HIGHEST_BLOCKER_BIT_MASK - 1);
+//
+//	const uint64_t IF_RAY_HALF = -(SEL_RAY_HALF == 0);
+//	const uint64_t HALF_MASK = (IF_RAY_HALF & LOWER_HALF_MASK) | (~IF_RAY_HALF & UPPER_HALF_MASK);
+//
+//	return HALF_MASK & DIRECTIONAL_RAY_MASK;
+//}
+
+uint64_t MoveValidationSystem::findBlockersHelper(MovementData& movement_data, uint64_t SEL_RAY_HALF, uint64_t DIRECTIONAL_RAY_MASK, whichPlayerInfo::playerInfo PLAYER)
 {
 	/*
 	* previous logic applied to halving the ray is applied to blockers as well
 	* blockers are found via intersecting enemies and directional ray
 	* then, depending on direction the upper or lower half must be formed, by isolating and tailing the blockers
 	* this half intersects with the directional ray, to exclude pieces behind the first found blocker
-	* **this function deals with enemies, and first enemy blocker can always be overtaken
-	* **lower half must correct for the lowest blocker bit, since tailing excludes the blocker
-	* **if the lowest blocker clips out at the MSB, the result is 0 - 1, which overflows and turns the entire board on.
-	*   this result is desired.
+	* enemy blockers have to be inclusive with the isolated bit (they overtake), whereas allied blockers must be exclusive (they don't overtake)
+	* **right bit-shift, can overflow, but the result is 0 - 1 = 0xF..F, which is a desired result
 	*/
 
-	const uint64_t BLOCKER_MASK = DIRECTIONAL_RAY_MASK & movement_data.enemies;
+	const uint64_t PLAYER_CHOICE[] = {movement_data.enemies, movement_data.allies};
+	const uint64_t BLOCKER_MASK = DIRECTIONAL_RAY_MASK & PLAYER_CHOICE[PLAYER];
+
+	//find isolated bits
 	const uint64_t LOWEST_BLOCKER_BIT_MASK = BLOCKER_MASK & (0ULL - BLOCKER_MASK);
 	const uint64_t HIGHEST_BLOCKER_BIT_MASK = std::bit_floor(BLOCKER_MASK);
 
-	const uint64_t LOWER_HALF_MASK = (LOWEST_BLOCKER_BIT_MASK << 1) - 1;
-	const uint64_t UPPER_HALF_MASK = ~(HIGHEST_BLOCKER_BIT_MASK - 1);
+	//tailing isolated bits
+	const uint64_t LOWER_HALF_INC_MASK = (LOWEST_BLOCKER_BIT_MASK << 1) - 1;
+	const uint64_t LOWER_HALF_EXC_MASK = LOWEST_BLOCKER_BIT_MASK - 1;
+	const uint64_t UPPER_HALF_INC_MASK = ~(HIGHEST_BLOCKER_BIT_MASK - 1);
+	const uint64_t UPPER_HALF_EXC_MASK = ~((HIGHEST_BLOCKER_BIT_MASK << 1) - 1);
+
+	//enemies - ~~, allies - ~
+	//determine whether pieces need to be included or excluded
+	const uint64_t IF_WHICH_PLAYER = -(PLAYER == 0);
+	const uint64_t LOWER_HALF_MASK = (IF_WHICH_PLAYER & LOWER_HALF_INC_MASK) | (~IF_WHICH_PLAYER & LOWER_HALF_EXC_MASK);
+	const uint64_t UPPER_HALF_MASK = (IF_WHICH_PLAYER & UPPER_HALF_INC_MASK) | (~IF_WHICH_PLAYER & UPPER_HALF_EXC_MASK);
 
 	const uint64_t IF_RAY_HALF = -(SEL_RAY_HALF == 0);
 	const uint64_t HALF_MASK = (IF_RAY_HALF & LOWER_HALF_MASK) | (~IF_RAY_HALF & UPPER_HALF_MASK);
@@ -197,15 +235,15 @@ uint64_t MoveValidationSystem::findEnemyBlockersHelper(MovementData& movement_da
 	return HALF_MASK & DIRECTIONAL_RAY_MASK;
 }
 
-//2.
-uint64_t MoveValidationSystem::findAllyBlockersHelper(MovementData& movement_data, uint64_t sel_ray_dir, uint64_t directional_ray_mask)
-{
-	uint64_t found_blockers = directional_ray_mask & movement_data.allies;
-	uint64_t if_significant_bit_mask = -(sel_ray_dir == 0);
-	uint64_t determined_halving = (if_significant_bit_mask & (((found_blockers & (0ULL - found_blockers)) - 1))) | (~if_significant_bit_mask & ~((std::bit_floor(found_blockers) - 1) | std::bit_floor(found_blockers)));
 
-	return determined_halving & directional_ray_mask;
-}
+//uint64_t MoveValidationSystem::findAllyBlockersHelper(MovementData& movement_data, uint64_t sel_ray_dir, uint64_t directional_ray_mask)
+//{
+//	uint64_t found_blockers = directional_ray_mask & movement_data.allies;
+//	uint64_t if_significant_bit_mask = -(sel_ray_dir == 0);
+//	uint64_t determined_halving = (if_significant_bit_mask & (((found_blockers & (0ULL - found_blockers)) - 1))) | (~if_significant_bit_mask & ~((std::bit_floor(found_blockers) - 1) | std::bit_floor(found_blockers)));
+//
+//	return determined_halving & directional_ray_mask;
+//}
 
 
 //3.
