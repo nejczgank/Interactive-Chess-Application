@@ -35,8 +35,9 @@ void BoardUpdatingSystem::clearPickedPieceHelper(InitGameState::Board& board, Mo
 {
 	//clearing the boards for the picked piece
 	board.occupancy[color] &= ~(1ULL << movement_data.picked_square_idx);
+	//this has to get adjusted becuase the pawn isn't being deleted when it changes to a queen
 	board.pieces[movement_data.picked_piece_type] &= ~(1ULL << movement_data.picked_square_idx);
-	movement_data.allies &= ~(1ULL << movement_data.picked_square_idx);
+	//movement_data.allies &= ~(1ULL << movement_data.picked_square_idx);
 }
 
 void BoardUpdatingSystem::clearNewSpotHelper(InitGameState::Board& board, MovementData& movement_data, PositionalEvalComponent& pos_eval_data, uint64_t& piece_placement, int color, int opposite_color)
@@ -54,7 +55,7 @@ void BoardUpdatingSystem::clearNewSpotHelper(InitGameState::Board& board, Moveme
 	//prepares the spot for the new piece to take hold on the board
 	board.occupancy[opposite_color] &= ~piece_placement;
 	board.pieces[movement_data.placed_piece_type] &= ~piece_placement;
-	movement_data.enemies &= ~piece_placement;
+	//movement_data.enemies &= ~piece_placement;
 }
 
 void BoardUpdatingSystem::placeNewPieceHelper(InitGameState::Board& board, MovementData& movement_data, uint64_t& piece_placement, int color, int opposite_color)
@@ -62,5 +63,5 @@ void BoardUpdatingSystem::placeNewPieceHelper(InitGameState::Board& board, Movem
 	//places the new piece
 	board.occupancy[color] |= piece_placement;
 	board.pieces[movement_data.picked_piece_type] |= piece_placement;
-	movement_data.allies |= piece_placement;
+	//movement_data.allies |= piece_placement;
 }
