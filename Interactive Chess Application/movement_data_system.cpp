@@ -9,6 +9,7 @@ void GetMovementInfoSystem::pickingInfo(const InitGameState::Board& board, Movem
 	* Aside from that the index value of the picked piece gets calculated to be used by the jump table,
 	* contained within the validator function. This is integral to determining where the selected piece
 	* can legally move.
+	* **also clears the piece index for pawn promotion, as it interferes with subsequent placements
 	*/
 
 	using enum pieceInfo::piece;
@@ -17,6 +18,8 @@ void GetMovementInfoSystem::pickingInfo(const InitGameState::Board& board, Movem
 
 	movement_data.picked_square_idx = picked_square_idx;
 	movement_data.placement_square_idx = placement_square_idx;
+	//clear pawn promotion
+	movement_data.promoted_piece_type = 0;
 
 	//checks for the color of the selected figure
 	const int64_t CHECKING_IF_WHITE = board.occupancy[white] & (1ULL << picked_square_idx);
