@@ -10,9 +10,9 @@
 
 class BoardUpdatingSystem {
 public:
-	static uint64_t movementValidation(MovementData&, uint64_t&);
+	static uint64_t movementValidation(MovementData&, uint64_t);
 	static void updateBoards(InitGameState::Board&, MovementData&, PositionalEvalComponent&, uint64_t);
 	static void clearPickedPieceHelper(InitGameState::Board&, MovementData&, int);
-	static void clearNewSpotHelper(InitGameState::Board&, MovementData&, PositionalEvalComponent&, uint64_t&, int, int);
-	static void placeNewPieceHelper(InitGameState::Board&, MovementData&, uint64_t&, int, int);
+	static void clearOvertakenSquareHelper(InitGameState::Board&, MovementData&, PositionalEvalComponent&, uint64_t, int, int);
+	static void placeNewPieceHelper(InitGameState::Board&, MovementData&, uint64_t, int, int);
 };

@@ -212,6 +212,12 @@ uint64_t MoveValidationSystem::findBlockersHelper(MovementData& movement_data, c
 
 uint64_t MoveValidationSystem::pawnValidation(InitGameState::Board& board, MovementData& movement_data)
 {
+	/*
+	* Pawns have their forward advancement movements validated first
+	* **Initial double movement requires validating current pawn rank and potential occupancy
+	* Followed by attacks and lastly special moves
+	*/
+
 	using enum occupancyInfo::occupancy;
 	using enum pieceInfo::piece;
 
@@ -226,7 +232,7 @@ uint64_t MoveValidationSystem::pawnValidation(InitGameState::Board& board, Movem
 	//evaluate if the selected pieces rank corresponds to the appropriate color coded initial pawn rank
 	const uint64_t INIT_POS_MASK = (IF_WHITE & (uint64_t)INIT_WHITE_PAWNS_RANK) | (IF_BLACK & (uint64_t)INIT_BLACK_PAWNS_RANK);
 	const int64_t RANK_EVAL = (movement_data.picked_square_idx / RANKS) == (int64_t)INIT_POS_MASK;
-	uint64_t IF_INIT = -RANK_EVAL;	
+	const uint64_t IF_INIT = -RANK_EVAL;	
 
 	//preventing progression to occupied squares (regular move)
 	//**working for both colors
@@ -279,7 +285,7 @@ uint64_t MoveValidationSystem::pawnValidation(InitGameState::Board& board, Movem
 	pawn_mask |= REGULAR_ATTACK_MASK;
 
 	//pawn promotion
-	/*constexpr int BACK_RANK_WHITE_SIDE = 0;
+	constexpr int BACK_RANK_WHITE_SIDE = 0;
 	constexpr int BACK_RANK_BLACK_SIDE = 7;
 	
 	const int EVAL_WHITE_PROMOTION = (movement_data.placement_square_idx / RANKS) == BACK_RANK_BLACK_SIDE;
@@ -291,7 +297,7 @@ uint64_t MoveValidationSystem::pawnValidation(InitGameState::Board& board, Movem
 	if ( (IF_WHITE_PAWN_PROMOTE | IF_BLACK_PAWN_PROMOTE) != 0ULL) 
 	{
 		movement_data.picked_piece_type = (int)( (IF_WHITE_PAWN_PROMOTE & white_queen) | (IF_BLACK_PAWN_PROMOTE & black_queen) );
-	}*/
+	}
 
 	//en-passant
 
@@ -425,13 +431,16 @@ uint64_t MoveValidationSystem::validator(InitGameState::Board& board, MovementDa
 		&MoveValidationSystem::kingValidation
 	};
 
+	constexpr int COLOR_CORRECTION = 6;
+	constexpr int FIRST_PIECE = 0;
+	constexpr int LAST_PIECE = 12;
 	uint64_t valid_moves = 0;
 
-	if (movement_data.picked_piece_type < 12 && movement_data.picked_piece_type >= 0) {
+	if (movement_data.picked_piece_type < LAST_PIECE && movement_data.picked_piece_type >= FIRST_PIECE) {
 		//accesses the function pointer via index, then execute it with the provided arguments
 		//modulo six accounts for figure color correction, as their legal moves don't differ based on color
 		///however I'm counting them separately as this fulfills another architectural purpose
-		valid_moves = jump_table[movement_data.picked_piece_type % 6](board, movement_data);
+		valid_moves = jump_table[movement_data.picked_piece_type % COLOR_CORRECTION](board, movement_data);
 	}
 
 	return valid_moves;

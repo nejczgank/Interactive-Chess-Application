@@ -11,4 +11,5 @@ struct MovementData
 	int placed_piece_type = 0;
 	uint64_t allies = 0ULL;
 	uint64_t enemies = 0ULL;
+	int promoted_piece_type = 0;
 };
