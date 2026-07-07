@@ -296,7 +296,7 @@ uint64_t MoveValidationSystem::pawnValidation(InitGameState::Board& board, Movem
 
 	if ( (IF_WHITE_PAWN_PROMOTE | IF_BLACK_PAWN_PROMOTE) != 0ULL) 
 	{
-		movement_data.picked_piece_type = (int)( (IF_WHITE_PAWN_PROMOTE & white_queen) | (IF_BLACK_PAWN_PROMOTE & black_queen) );
+		movement_data.promoted_piece_type = (int)( (IF_WHITE_PAWN_PROMOTE & white_queen) | (IF_BLACK_PAWN_PROMOTE & black_queen) );
 	}
 
 	//en-passant

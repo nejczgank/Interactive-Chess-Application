@@ -45,7 +45,7 @@ void BoardUpdatingSystem::clearPickedPieceHelper(InitGameState::Board& board, Mo
 	//clearing the boards for the picked piece
 	board.occupancy[ATTACKER_COLOR] &= ~(1ULL << movement_data.picked_square_idx);
 
-	//this has to get adjusted because the pawn isn't being deleted when it changes to a queen!!!!!!!!!!
+	//clearing the piece
 	board.pieces[movement_data.picked_piece_type] &= ~(1ULL << movement_data.picked_square_idx);
 }
 
@@ -72,6 +72,12 @@ void BoardUpdatingSystem::placeNewPieceHelper(InitGameState::Board& board, Movem
 	//adjusting new occupancy
 	board.occupancy[ATTACKER_COLOR] |= VALID_PIECE_PLACEMENT;
 
+	//adjusting piece type, whether pawn promotion occured
+	const int SEL_PIECE_IDX = (movement_data.promoted_piece_type > 0);
+	uint64_t* regular_placement = &board.pieces[movement_data.picked_piece_type];
+	uint64_t* pawn_promotion_placement = &board.pieces[movement_data.promoted_piece_type];
+	uint64_t* board_selection[] = {regular_placement, pawn_promotion_placement};
+	
 	//placing the new piece
-	board.pieces[movement_data.picked_piece_type] |= VALID_PIECE_PLACEMENT;
+	*board_selection[SEL_PIECE_IDX] |= VALID_PIECE_PLACEMENT;
 }
