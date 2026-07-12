@@ -1,6 +1,6 @@
 #include "move_validation_system.h"
 
-uint64_t MoveValidationSystem::universalRay(MovementData& movement_data, const uint64_t direction_bitfield, const uint64_t full_ray)
+uint64_t MoveValidationSystem::universalRay(const MovementData& movement_data, const uint64_t direction_bitfield, const uint64_t full_ray)
 {
 	using enum whichPlayerInfo::playerInfo;
 
@@ -54,7 +54,7 @@ uint64_t MoveValidationSystem::universalRay(MovementData& movement_data, const u
 	return UNIVERSAL_RAY_MASK;
 }
 
-uint64_t MoveValidationSystem::rayHalvingHelper(MovementData& movement_data, const uint64_t SEL_RAY_HALF, const uint64_t SEL_RAY_ROTATION, const uint64_t full_ray)
+uint64_t MoveValidationSystem::rayHalvingHelper(const MovementData& movement_data, const uint64_t SEL_RAY_HALF, const uint64_t SEL_RAY_ROTATION, const uint64_t full_ray)
 {
 	/*
 	* a ray is initially constructed via full_ray, obtained from defined constants in ray_transposition_info
@@ -91,7 +91,7 @@ uint64_t MoveValidationSystem::rayHalvingHelper(MovementData& movement_data, con
 	return transposed_ray_mask & HALF_MASK; //intersected ray and valid half for the ray, to provide direction
 }
 
-uint64_t MoveValidationSystem::diagonalTransformation(MovementData& movement_data, const uint64_t full_ray)
+uint64_t MoveValidationSystem::diagonalTransformation(const MovementData& movement_data, const uint64_t full_ray)
 {
 	/*
 	* here a diagonal or anti-diagonal ray gets transposed to the origin square
@@ -99,7 +99,7 @@ uint64_t MoveValidationSystem::diagonalTransformation(MovementData& movement_dat
 	* require their own logic
 	* **wrap-around, doesn't occur because shifting the ray up or down clips the excess bits
 	* 
-	* °  -> origin
+	* ° -> origin
 	* / -> diagonal
 	* 
 	* DIAGONAL (/):
@@ -148,7 +148,7 @@ uint64_t MoveValidationSystem::diagonalTransformation(MovementData& movement_dat
 	return TRANSPOSED_DIAGONAL_MASK;
 }
 
-uint64_t MoveValidationSystem::nonDiagonalTransformation(MovementData& movement_data, const uint64_t SEL_RAY_ROTATION, const uint64_t full_ray)
+uint64_t MoveValidationSystem::nonDiagonalTransformation(const MovementData& movement_data, const uint64_t SEL_RAY_ROTATION, const uint64_t full_ray)
 {
 	/*
 	* transposes the ray to the origin of the piece
@@ -173,7 +173,7 @@ uint64_t MoveValidationSystem::nonDiagonalTransformation(MovementData& movement_
 	return MOVE_VERTICAL_RAY_MASK | MOVE_HORIZONTAL_RAY_MASK;
 }
 
-uint64_t MoveValidationSystem::findBlockersHelper(MovementData& movement_data, const uint64_t SEL_RAY_HALF, const uint64_t DIRECTIONAL_RAY_MASK, const whichPlayerInfo::playerInfo PLAYER)
+uint64_t MoveValidationSystem::findBlockersHelper(const MovementData& movement_data, const uint64_t SEL_RAY_HALF, const uint64_t DIRECTIONAL_RAY_MASK, const whichPlayerInfo::playerInfo PLAYER)
 {
 	/*
 	* previous logic applied to halving the ray is applied to blockers as well
@@ -196,7 +196,7 @@ uint64_t MoveValidationSystem::findBlockersHelper(MovementData& movement_data, c
 	const uint64_t LOWER_HALF_INC_MASK = (LOWEST_BLOCKER_BIT_MASK << 1) - 1;
 	const uint64_t LOWER_HALF_EXC_MASK = LOWEST_BLOCKER_BIT_MASK - 1;
 	const uint64_t UPPER_HALF_INC_MASK = ~(HIGHEST_BLOCKER_BIT_MASK - 1);
-	const uint64_t UPPER_HALF_EXC_MASK = ~((HIGHEST_BLOCKER_BIT_MASK << 1) - 1);
+	const uint64_t UPPER_HALF_EXC_MASK = ~( (HIGHEST_BLOCKER_BIT_MASK << 1) - 1);
 
 	//enemies - ~~, allies - ~
 	//determine whether pieces need to be included or excluded
@@ -210,7 +210,7 @@ uint64_t MoveValidationSystem::findBlockersHelper(MovementData& movement_data, c
 	return HALF_MASK & DIRECTIONAL_RAY_MASK;
 }
 
-uint64_t MoveValidationSystem::pawnValidation(InitGameState::Board& board, MovementData& movement_data)
+uint64_t MoveValidationSystem::pawnValidation(const InitGameState::Board& board, MovementData& movement_data)
 {
 	/*
 	* Pawns have their forward advancement movements validated first
@@ -248,10 +248,10 @@ uint64_t MoveValidationSystem::pawnValidation(InitGameState::Board& board, Movem
 	//preventing progression to occupied squares (initial double move)
 	//**working for both colors
 	constexpr uint64_t TWO_SQUARES = 0X101ULL;
-	constexpr uint64_t DOUBLE_VERT_ADJUST = 16;
+	uint64_t double_vert_adjust = 16;
 
 	const uint64_t DOUBLE_WHITE_MOVE_MASK = (TWO_SQUARES << (movement_data.picked_square_idx + VERT_ADJUST) );
-	const uint64_t DOUBLE_BLACK_MOVE_MASK = ( (TWO_SQUARES << movement_data.picked_square_idx) >> DOUBLE_VERT_ADJUST);
+	const uint64_t DOUBLE_BLACK_MOVE_MASK = ( (TWO_SQUARES << movement_data.picked_square_idx) >> double_vert_adjust);
 	const uint64_t DOUBLE_WHITE_MOVE_BLOCKED_MASK = board.occupancy[all] & DOUBLE_WHITE_MOVE_MASK;
 	const uint64_t DOUBLE_BLACK_MOVE_BLOCKED_MASK = board.occupancy[all] & DOUBLE_BLACK_MOVE_MASK;
 	const uint64_t DOUBLE_BLOCKED_MASK = (IF_WHITE & DOUBLE_WHITE_MOVE_BLOCKED_MASK) | (IF_BLACK & DOUBLE_BLACK_MOVE_BLOCKED_MASK);
@@ -278,36 +278,155 @@ uint64_t MoveValidationSystem::pawnValidation(InitGameState::Board& board, Movem
 	const uint64_t REGULAR_ATTACK_MASK = 
 		(IF_WHITE & NOT_H & (board.occupancy[black] & (1ULL << (movement_data.picked_square_idx + LEFT_ATTACK) ) ) )   |
 		(IF_WHITE &	NOT_A & (board.occupancy[black] & (1ULL << (movement_data.picked_square_idx + RIGHT_ATTACK) ) ) )  |
-		(IF_BLACK & NOT_A & (board.occupancy[white] & ((1ULL << movement_data.picked_square_idx) >> LEFT_ATTACK) ) )  |
-		(IF_BLACK &	NOT_H & (board.occupancy[white] & ((1ULL << movement_data.picked_square_idx) >> RIGHT_ATTACK) ) )
+		(IF_BLACK & NOT_A & (board.occupancy[white] & ( (1ULL << movement_data.picked_square_idx) >> LEFT_ATTACK) ) )  |
+		(IF_BLACK &	NOT_H & (board.occupancy[white] & ( (1ULL << movement_data.picked_square_idx) >> RIGHT_ATTACK) ) )
 	;
 
 	pawn_mask |= REGULAR_ATTACK_MASK;
 
-	//pawn promotion
-	constexpr int BACK_RANK_WHITE_SIDE = 0;
-	constexpr int BACK_RANK_BLACK_SIDE = 7;
+	//PAWN PROMOTION (TO QUEEN)
+	constexpr int BACK_RANK_WHITE_SIDE_IDX = 0;
+	constexpr int BACK_RANK_BLACK_SIDE_IDX = 7;
 	
-	const int EVAL_WHITE_PROMOTION = (movement_data.placement_square_idx / RANKS) == BACK_RANK_BLACK_SIDE;
-	const int EVAL_BLACK_PROMOTION = (movement_data.placement_square_idx / RANKS) == BACK_RANK_WHITE_SIDE;
+	const int EVAL_WHITE_PROMOTION = (movement_data.placement_square_idx / RANKS) == BACK_RANK_BLACK_SIDE_IDX;
+	const int EVAL_BLACK_PROMOTION = (movement_data.placement_square_idx / RANKS) == BACK_RANK_WHITE_SIDE_IDX;
 	
 	const uint64_t IF_WHITE_PAWN_PROMOTE = -(int64_t)(IF_WHITE != 0ULL && EVAL_WHITE_PROMOTION);
 	const uint64_t IF_BLACK_PAWN_PROMOTE = -(int64_t)(IF_BLACK != 0ULL && EVAL_BLACK_PROMOTION);
 
-	if ( (IF_WHITE_PAWN_PROMOTE | IF_BLACK_PAWN_PROMOTE) != 0ULL) 
-	{
-		movement_data.promoted_piece_type = (int)( (IF_WHITE_PAWN_PROMOTE & white_queen) | (IF_BLACK_PAWN_PROMOTE & black_queen) );
-	}
+	movement_data.promoted_piece_type = (int) (
+		(IF_WHITE_PAWN_PROMOTE & white_queen) |
+		(IF_BLACK_PAWN_PROMOTE & black_queen)
+	);
+
+	/* 
+	* EN-PASSANT
+	* enemy must make the move to your properly situated pawn
+	* it must be an initial double move
+	* only legal for a specified pawn at that specific turn
+	*/
+
+	//constexpr int WHITE_EN_PASSANT_RANK_IDX = 4;
+	//constexpr int BLACK_EN_PASSANT_RANK_IDX = 3;
+
+	////if the rank is correct
+	//const uint64_t IF_WHITE_PASSANT_RANK = -( (movement_data.picked_square_idx / RANKS) == WHITE_EN_PASSANT_RANK_IDX);
+	//const uint64_t IF_BLACK_PASSANT_RANK = -( (movement_data.picked_square_idx / RANKS) == BLACK_EN_PASSANT_RANK_IDX);
+
+	////if an enemy is adjacent
+	//constexpr int SIDE = 1;
+
+	//const uint64_t PICKED_BIT_MASK = 1ULL << movement_data.picked_square_idx;
+
+	//uint64_t if_black_pawn_left   = -(int64_t)( ( (PICKED_BIT >> SIDE) & board.pieces[black_pawn] ) > 0 );
+	//uint64_t if_black_pawn_right  = -(int64_t)( ( (PICKED_BIT << SIDE) & board.pieces[black_pawn] ) > 0 );
+	//uint64_t if_white_pawn_right  = -(int64_t)( ( (PICKED_BIT << SIDE) & board.pieces[white_pawn] ) > 0 );
+	//uint64_t if_white_pawn_left   = -(int64_t)( ( (PICKED_BIT >> SIDE) & board.pieces[white_pawn] ) > 0 );
+
+	//const uint64_t IF_BLACK_PIECE_ADJACENT = -( (if_black_pawn_left | if_black_pawn_right) > 0);
+	//const uint64_t IF_WHITE_PIECE_ADJACENT = -( (if_white_pawn_left | if_white_pawn_right) > 0);
+
+	////if the en-passant opportunity is disallowed
+	//const uint64_t PLACED_BIT_MASK = 1ULL << movement_data.placement_square_idx;
+
+	//uint64_t if_white_disallowed = -(int64_t)( (movement_data.white_disallowed_passant_mask & PICKED_BIT) > 0);
+	//uint64_t if_black_disallowed = -(int64_t)( (movement_data.black_disallowed_passant_mask & PICKED_BIT) > 0);
+
+	////if en-passant
+	//const uint64_t IF_WHITE_PASSANT =
+	//	IF_WHITE & IF_WHITE_PASSANT_RANK & movement_data.if_black_init_move & IF_BLACK_PIECE_ADJACENT & ~if_white_disallowed;
+
+	//const uint64_t IF_BLACK_PASSANT =
+	//	IF_BLACK & IF_BLACK_PASSANT_RANK & movement_data.if_white_init_move & IF_WHITE_PIECE_ADJACENT & ~if_black_disallowed;
 
 	//en-passant
+	constexpr int SIDE = 1;
+	const uint64_t PICKED_BIT_MASK = 1ULL << movement_data.picked_square_idx;
 
+	constexpr int UP_LEFT    = 7; 
+	constexpr int UP_RIGHT   = 9;
+	constexpr int DOWN_LEFT  = 9;
+	constexpr int DOWN_RIGHT = 7;
 
+	uint64_t IF_BLACK_PAWN_LEFT   = -(int64_t)( ( (PICKED_BIT_MASK >> SIDE) & board.pieces[black_pawn] ) > 0 );
+	uint64_t IF_BLACK_PAWN_RIGHT  = -(int64_t)( ( (PICKED_BIT_MASK << SIDE) & board.pieces[black_pawn] ) > 0 );
+	uint64_t IF_WHITE_PAWN_RIGHT  = -(int64_t)( ( (PICKED_BIT_MASK << SIDE) & board.pieces[white_pawn] ) > 0 );
+	uint64_t IF_WHITE_PAWN_LEFT   = -(int64_t)( ( (PICKED_BIT_MASK >> SIDE) & board.pieces[white_pawn] ) > 0 );
+
+	const uint64_t EN_PASSANT_MASK =
+
+		(movement_data.passant_mask & IF_BLACK_PAWN_LEFT  & (PICKED_BIT_MASK << UP_LEFT) )    |
+		(movement_data.passant_mask & IF_BLACK_PAWN_RIGHT & (PICKED_BIT_MASK << UP_RIGHT) )   |
+		(movement_data.passant_mask & IF_WHITE_PAWN_LEFT  & (PICKED_BIT_MASK >> DOWN_LEFT) )  |
+		(movement_data.passant_mask & IF_WHITE_PAWN_RIGHT & (PICKED_BIT_MASK >> DOWN_RIGHT) )
+	;
+
+	pawn_mask |= EN_PASSANT_MASK;
+
+	//if passant was available, mark that field
+	//this is done when a pawn piece is moved double ahead from its initial position
+	//constexpr int UP = 8;
+	//constexpr int DOWN = 8;
+	//movement_data.previous_placed_bit = PLACED_BIT;
+
+	//const uint64_t ADJUST_TO_WHITE_PASSANT = movement_data.previous_placed_bit << UP;
+	//const uint64_t ADJUST_TO_BLACK_PASSANT = movement_data.previous_placed_bit >> DOWN;
+
+	////these get reappropriated from the perspecitve of the piece that just moved
+	//if_white_pawn_left  = -(int64_t)( ( (PLACED_BIT >> SIDE) & board.pieces[white_pawn]) > 0);
+	//if_white_pawn_right = -(int64_t)( ( (PLACED_BIT << SIDE) & board.pieces[white_pawn]) > 0);
+	//if_black_pawn_left  = -(int64_t)( ( (PLACED_BIT >> SIDE) & board.pieces[black_pawn]) > 0);
+	//if_black_pawn_right = -(int64_t)( ( (PLACED_BIT << SIDE) & board.pieces[black_pawn]) > 0);
+
+	//const uint64_t IF_NEXT_TO_WHITE_PAWN = if_white_pawn_left | if_white_pawn_right;
+	//if_white_disallowed = -(int64_t)( (ADJUST_TO_WHITE_PASSANT & movement_data.white_disallowed_passant_mask) > 0);
+
+	//const uint64_t IF_NEXT_TO_BLACK_PAWN = if_black_pawn_left | if_black_pawn_right;
+	//if_black_disallowed = -(int64_t)( (ADJUST_TO_BLACK_PASSANT & movement_data.black_disallowed_passant_mask) > 0);
+
+	//const uint64_t POSSIBLE_WHITE_PASSANT = IF_NEXT_TO_WHITE_PAWN & ~if_white_disallowed;
+	//const uint64_t POSSIBLE_BLACK_PASSANT = IF_NEXT_TO_BLACK_PAWN & ~if_black_disallowed;
+	//
+	//const uint64_t EN_PASSANT_OCCURED_MASK = EN_PASSANT_MASK & PLACED_BIT;
+	//movement_data.white_disallowed_passant_mask |= (movement_data.if_previous_white_passant & ADJUST_TO_WHITE_PASSANT) ^ EN_PASSANT_OCCURED_MASK;
+	//movement_data.black_disallowed_passant_mask |= (movement_data.if_previous_black_passant & ADJUST_TO_BLACK_PASSANT) ^ EN_PASSANT_OCCURED_MASK;
+
+	//movement_data.if_previous_white_passant = POSSIBLE_WHITE_PASSANT;
+	//movement_data.if_previous_black_passant = POSSIBLE_BLACK_PASSANT;
+
+	//need to get the previous state where a passant might have been possible
+	//my previous code is coupled with whichever piece was picked, so now I have to adjust properly
+	//if: left or right of the double moved pawn is an enemy pawn,
+    //    check if the place for the new en passant hasn't been disallowed
+	//    after this shit gets set you have to make a condition that if this shit just succeeded then it cannot set the disallowed_mask just yet  		  
+    //    this can also introduce a bug whereby the pawn has moved to the en passant, and if the move actually occured then I must not turn the disallowal on there
+	//is can do it by checking from the perspective of an enemy moved double piece
+
+	////if any player moved with a double initial move, mark that
+	//constexpr uint64_t SECOND_FORWARD_SQUARE_MASK = 0x100;
+	//constexpr int SECORD_FORWARD_SQUARE_ADJUSTMENT = 8;
+	//double_vert_adjust += SECORD_FORWARD_SQUARE_ADJUSTMENT;
+
+	//const uint64_t WHITE_DOUBLE_MOVE_MASK =  (  SECOND_FORWARD_SQUARE_MASK << (movement_data.picked_square_idx  +  VERT_ADJUST) );
+	//const uint64_t BLACK_DOUBLE_MOVE_MASK =  ( (SECOND_FORWARD_SQUARE_MASK <<  movement_data.picked_square_idx) >> double_vert_adjust);
+	//const uint64_t IF_WHITE_DOUBLE_MOVED  = -( (PLACED_BIT & WHITE_DOUBLE_MOVE_MASK) > 0);
+	//const uint64_t IF_BLACK_DOUBLE_MOVED  = -( (PLACED_BIT & BLACK_DOUBLE_MOVE_MASK) > 0);
+
+	////save that double move occured, for the next iteration
+	//movement_data.if_white_init_move = (IF_WHITE & IF_WHITE_DOUBLE_MOVED);
+	//movement_data.if_black_init_move = (IF_BLACK & IF_BLACK_DOUBLE_MOVED);
+
+	//update board state
 	return pawn_mask;
+
+	//current issues
+	//disallowed passant mask must reset for pieces that move out of that position or get overtaken
+	//the overtaken piece must actually be overtaken by the board_updating_system so that's going to be a fucking mess to implement
 }
 
 //following functions have a board argument, because pawn validation required it, and all functions need same
 //parameters for the jump table to execute
-uint64_t MoveValidationSystem::knightValidation(InitGameState::Board&, MovementData& movement_data)
+uint64_t MoveValidationSystem::knightValidation(const InitGameState::Board&, MovementData& movement_data)
 {
 	uint64_t knight_mask = 0;
 
@@ -321,25 +440,25 @@ uint64_t MoveValidationSystem::knightValidation(InitGameState::Board&, MovementD
 	constexpr int RIGHT_DOWN = 6;
 	constexpr int DOWN_RIGHT = 15;
 
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_H_MASK) << UP_RIGHT & ~movement_data.allies;
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_G_MASK & NOT_H_MASK) << RIGHT_UP & ~movement_data.allies;
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_G_MASK & NOT_H_MASK) >> RIGHT_DOWN & ~movement_data.allies;
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_H_MASK) >> DOWN_RIGHT & ~movement_data.allies;
+	knight_mask |= ( (1ULL << movement_data.picked_square_idx) & NOT_H_MASK) << UP_RIGHT & ~movement_data.allies;
+	knight_mask |= ( (1ULL << movement_data.picked_square_idx) & NOT_G_MASK & NOT_H_MASK) << RIGHT_UP & ~movement_data.allies;
+	knight_mask |= ( (1ULL << movement_data.picked_square_idx) & NOT_G_MASK & NOT_H_MASK) >> RIGHT_DOWN & ~movement_data.allies;
+	knight_mask |= ( (1ULL << movement_data.picked_square_idx) & NOT_H_MASK) >> DOWN_RIGHT & ~movement_data.allies;
 
 	constexpr int DOWN_LEFT = 17;
 	constexpr int LEFT_DOWN = 10;
 	constexpr int LEFT_UP = 6;
 	constexpr int UP_LEFT = 15;
 
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_A_MASK) >> DOWN_LEFT & ~movement_data.allies;
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_B_MASK & NOT_A_MASK) >> LEFT_DOWN & ~movement_data.allies;
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_B_MASK & NOT_A_MASK) << LEFT_UP & ~movement_data.allies;
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_A_MASK) << UP_LEFT & ~movement_data.allies;
+	knight_mask |= ( (1ULL << movement_data.picked_square_idx) & NOT_A_MASK) >> DOWN_LEFT & ~movement_data.allies;
+	knight_mask |= ( (1ULL << movement_data.picked_square_idx) & NOT_B_MASK & NOT_A_MASK) >> LEFT_DOWN & ~movement_data.allies;
+	knight_mask |= ( (1ULL << movement_data.picked_square_idx) & NOT_B_MASK & NOT_A_MASK) << LEFT_UP & ~movement_data.allies;
+	knight_mask |= ( (1ULL << movement_data.picked_square_idx) & NOT_A_MASK) << UP_LEFT & ~movement_data.allies;
 
 	return knight_mask;
 }
 
-uint64_t MoveValidationSystem::rookValidation(InitGameState::Board&, MovementData& movement_data)
+uint64_t MoveValidationSystem::rookValidation(const InitGameState::Board&, MovementData& movement_data)
 {
 	using enum rayTranspositionInfo::rays;
 	using enum rayDirectionInfo::rays;
@@ -354,7 +473,7 @@ uint64_t MoveValidationSystem::rookValidation(InitGameState::Board&, MovementDat
 	return rook_mask;
 }
 
-uint64_t MoveValidationSystem::bishopValidation(InitGameState::Board&, MovementData& movement_data)
+uint64_t MoveValidationSystem::bishopValidation(const InitGameState::Board&, MovementData& movement_data)
 {
 	using enum rayTranspositionInfo::rays;
 	using enum rayDirectionInfo::rays;
@@ -369,7 +488,7 @@ uint64_t MoveValidationSystem::bishopValidation(InitGameState::Board&, MovementD
 	return bishop_mask;
 }
 
-uint64_t MoveValidationSystem::queenValidation(InitGameState::Board&, MovementData& movement_data)
+uint64_t MoveValidationSystem::queenValidation(const InitGameState::Board&, MovementData& movement_data)
 {
 	using enum rayTranspositionInfo::rays;
 	using enum rayDirectionInfo::rays;
@@ -388,22 +507,22 @@ uint64_t MoveValidationSystem::queenValidation(InitGameState::Board&, MovementDa
 	return queen_mask;
 }
 
-uint64_t MoveValidationSystem::kingValidation(InitGameState::Board&, MovementData& movement_data)
+uint64_t MoveValidationSystem::kingValidation(const InitGameState::Board&, MovementData& movement_data)
 {
 	uint64_t king_mask = 0;
 
 	constexpr uint64_t NOT_A_FILE = ~0x1010101010101010;
 	constexpr uint64_t NOT_H_FILE = ~0x8080808080808080;
 
-	king_mask |= ((1ULL << movement_data.picked_square_idx) << 8) & ~movement_data.allies;
-	king_mask |= ((1ULL << movement_data.picked_square_idx) >> 8) & ~movement_data.allies;
-	king_mask |= ((1ULL << movement_data.picked_square_idx) << 1) & NOT_A_FILE & ~movement_data.allies;
-	king_mask |= ((1ULL << movement_data.picked_square_idx) >> 1) & NOT_H_FILE & ~movement_data.allies;
+	king_mask |= ( (1ULL << movement_data.picked_square_idx) << 8) & ~movement_data.allies;
+	king_mask |= ( (1ULL << movement_data.picked_square_idx) >> 8) & ~movement_data.allies;
+	king_mask |= ( (1ULL << movement_data.picked_square_idx) << 1) & NOT_A_FILE & ~movement_data.allies;
+	king_mask |= ( (1ULL << movement_data.picked_square_idx) >> 1) & NOT_H_FILE & ~movement_data.allies;
 
-	king_mask |= (((1ULL << movement_data.picked_square_idx) << 9) & NOT_A_FILE) & ~movement_data.allies;
-	king_mask |= (((1ULL << movement_data.picked_square_idx) << 7) & NOT_H_FILE) & ~movement_data.allies;
-	king_mask |= (((1ULL << movement_data.picked_square_idx) >> 9) & NOT_H_FILE) & ~movement_data.allies;
-	king_mask |= (((1ULL << movement_data.picked_square_idx) >> 7) & NOT_A_FILE) & ~movement_data.allies;
+	king_mask |= ( ( (1ULL << movement_data.picked_square_idx) << 9) & NOT_A_FILE) & ~movement_data.allies;
+	king_mask |= ( ( (1ULL << movement_data.picked_square_idx) << 7) & NOT_H_FILE) & ~movement_data.allies;
+	king_mask |= ( ( (1ULL << movement_data.picked_square_idx) >> 9) & NOT_H_FILE) & ~movement_data.allies;
+	king_mask |= ( ( (1ULL << movement_data.picked_square_idx) >> 7) & NOT_A_FILE) & ~movement_data.allies;
 
 	return king_mask;
 }
@@ -415,7 +534,7 @@ uint64_t MoveValidationSystem::validator(InitGameState::Board& board, MovementDa
 	//(here it's only * because the access system is being handled via the "using" keyword),
 	//and the second parentheses contains function parameters, that have to be uniform for the jump table to work
 	//for the sake of determinism
-	using a_validator = uint64_t(*)(InitGameState::Board&, MovementData&);
+	using a_validator = uint64_t(*)(const InitGameState::Board&, MovementData&);
 
 	//array of function pointers
 	//static keyword in front of a data type enforces this table belongs only to this source file

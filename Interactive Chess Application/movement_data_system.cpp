@@ -90,6 +90,3 @@ uint64_t GetMovementInfoSystem::ComputePieceIdxMaskHelper(const InitGameState::B
 
 	return PIECE_IDX_MASK;
 }
-
-
-

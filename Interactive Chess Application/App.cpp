@@ -58,6 +58,9 @@ int main() {
 		//Obtain movement data for the placed piece
 		GetMovementInfoSystem::placementInfo(board, movement_data, placement_square_idx);
 		
+		//Set previous board state for en-passant
+		//GetMovementInfoSystem::updatePreviousPawnState(board, movement_data);
+
 		//Update the board with new values
 		BoardUpdatingSystem::updateBoards(board, movement_data, pos_eval, VALID_PIECE_PLACEMENT);
 		//---------------//---------------//---------------//---------------//---------------//---------------//---------------//---------------
