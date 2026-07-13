@@ -31,6 +31,10 @@ int main() {
 
 	//bool is_king_check = SpecialMoveValidationSystem::isKingCheck(board, 0);
 
+	//Initialize player turn state
+	bool white_turn = 1;
+	bool black_turn = 0;
+
 	while (true) {
 
 		//---------------//---------------//--------------- PREPERATION ---------------//---------------//---------------//---------------
@@ -38,16 +42,22 @@ int main() {
 		Display::displayBoard(&board);
 
 		//Input validation
-		//!THIS WILL HAVE TO PREVENT PICKING THE OPPONENTS PIECES
 		auto [picked_square_idx, placement_square_idx] = PlayerInput::moveHandling(); //obtain square indices
 		
-		//---------------//---------------//--------------- MOVEMENT VALIDATION ---------------//---------------//---------------//---------------
+		
 		//Determine color of the picked and placed piece
 		GetMovementInfoSystem::basicInfo(board, movement_data, picked_square_idx, placement_square_idx);
 
-		//Determine and enforce color correctness of the picked piece
-		//**code**//
+		//enforce picked piece color correctness, and disallow an empty square to represent the picked piece
+		const int TURN = PlayerInput::turnValidation(board, movement_data, white_turn, black_turn);
 
+		if (TURN == 0)
+		{
+			PlayerInput::invalidPick();
+			continue;
+		}
+
+		//---------------//---------------//--------------- MOVEMENT VALIDATION ---------------//---------------//---------------//---------------
 		//Obtain movement data for the picked piece
 		GetMovementInfoSystem::pickingInfo(board, movement_data);
 
@@ -71,6 +81,10 @@ int main() {
 
 		//Update the board with new values
 		BoardUpdatingSystem::updateBoards(board, movement_data, pos_eval, VALID_PIECE_PLACEMENT);
+
+		//Update turn state
+		white_turn ^= 1;
+		black_turn ^= 1;
 		//---------------//---------------//---------------//---------------//---------------//---------------//---------------//---------------
 	}
 

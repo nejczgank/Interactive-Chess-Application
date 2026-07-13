@@ -41,8 +41,8 @@ void GetMovementInfoSystem::pickingInfo(const InitGameState::Board& board, Movem
 	movement_data.promoted_piece_type = 0;
 
 	//determine which board pieces are allies or enemies based on color of the attacker found in basicInfo
-	const uint64_t IF_WHITE = -(movement_data.attacker_color < 1);
-	const uint64_t IF_BLACK = -(movement_data.attacker_color > 0);
+	const uint64_t IF_WHITE = -((int)movement_data.attacker_color < 1);
+	const uint64_t IF_BLACK = -((int)movement_data.attacker_color > 0);
 
 	movement_data.allies  = (IF_WHITE & board.occupancy[white]) | (IF_BLACK & board.occupancy[black]);
 	movement_data.enemies = (IF_WHITE & board.occupancy[black]) | (IF_BLACK & board.occupancy[white]);

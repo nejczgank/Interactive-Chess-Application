@@ -10,8 +10,8 @@ struct MovementData
 	int placement_square_idx = 0;
 	int picked_piece_type = 0;
 	int placed_piece_type = 0;
-	int attacker_color = 0;
-	int defender_color = 0;
+	bool attacker_color = 0;
+	bool defender_color = 0;
 	uint64_t allies = 0ULL;
 	uint64_t enemies = 0ULL;
 
