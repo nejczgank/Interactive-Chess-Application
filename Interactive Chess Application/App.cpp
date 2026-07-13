@@ -42,21 +42,29 @@ int main() {
 		auto [picked_square_idx, placement_square_idx] = PlayerInput::moveHandling(); //obtain square indices
 		
 		//---------------//---------------//--------------- MOVEMENT VALIDATION ---------------//---------------//---------------//---------------
+		//Determine color of the picked and placed piece
+		GetMovementInfoSystem::basicInfo(board, movement_data, picked_square_idx, placement_square_idx);
+
+		//Determine and enforce color correctness of the picked piece
+		//**code**//
+
 		//Obtain movement data for the picked piece
-		GetMovementInfoSystem::pickingInfo(board, movement_data, picked_square_idx, placement_square_idx);
+		GetMovementInfoSystem::pickingInfo(board, movement_data);
 
 		//Validate legal moves for the picked piece
 		const uint64_t VALID_MOVES = MoveValidationSystem::validator(board, movement_data);
 
 		//Look if there are any legal moves, to enforce correctness
 		const uint64_t VALID_PIECE_PLACEMENT = BoardUpdatingSystem::movementValidation(movement_data, VALID_MOVES);
-		if (VALID_PIECE_PLACEMENT == 0ULL) {
+
+		if (VALID_PIECE_PLACEMENT == 0ULL)
+		{
 			PlayerInput::outOfScope();
 			continue;
 		}
 
 		//Obtain movement data for the placed piece
-		GetMovementInfoSystem::placementInfo(board, movement_data, placement_square_idx);
+		GetMovementInfoSystem::placementInfo(board, movement_data);
 		
 		//Set previous board state for en-passant
 		//GetMovementInfoSystem::updatePreviousPawnState(board, movement_data);

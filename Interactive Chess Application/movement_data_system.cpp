@@ -1,6 +1,27 @@
 #include "movement_data_system.h"
 
-void GetMovementInfoSystem::pickingInfo(const InitGameState::Board& board, MovementData& movement_data, int picked_square_idx, int placement_square_idx)
+void GetMovementInfoSystem::basicInfo(const InitGameState::Board& board, MovementData& movement_data, int picked_square_idx, int placement_square_idx)
+{
+	/*
+	* BasicInfo obtains essential data once players input is confirmed valid
+	* The function obtains data of the indices of the picked and placed piece
+	* as well as determining the color of said pieces
+	*/
+
+	using enum occupancyInfo::occupancy;
+
+	movement_data.picked_square_idx = picked_square_idx;
+	movement_data.placement_square_idx = placement_square_idx;
+
+	const int64_t CHECKING_IF_BLACK = board.occupancy[black] & (1ULL << picked_square_idx);
+	const int PIECE_COLOR = CHECKING_IF_BLACK > 0ULL ? black : white;
+
+	movement_data.attacker_color = PIECE_COLOR;		  //0 - white, 1 - black
+	movement_data.defender_color = (1 - PIECE_COLOR); //0 - white, 1 - black
+
+}
+
+void GetMovementInfoSystem::pickingInfo(const InitGameState::Board& board, MovementData& movement_data)
 {
 	/*
 	* This function is responsible for finding movement data when a piece is picked.
@@ -16,26 +37,22 @@ void GetMovementInfoSystem::pickingInfo(const InitGameState::Board& board, Movem
 	using enum occupancyInfo::occupancy;
 	using enum moveInfo::move;
 
-	movement_data.picked_square_idx = picked_square_idx;
-	movement_data.placement_square_idx = placement_square_idx;
 	//clear pawn promotion
 	movement_data.promoted_piece_type = 0;
 
-	//checks for the color of the selected figure
-	const int64_t CHECKING_IF_WHITE = board.occupancy[white] & (1ULL << picked_square_idx);
-	const int64_t PIECE_COLOR = CHECKING_IF_WHITE > 0ULL ? white : black;
-	const uint64_t IF_WHITE = -(1 - PIECE_COLOR);
-	const uint64_t IF_BLACK = -(PIECE_COLOR);
+	//determine which board pieces are allies or enemies based on color of the attacker found in basicInfo
+	const uint64_t IF_WHITE = -(movement_data.attacker_color < 1);
+	const uint64_t IF_BLACK = -(movement_data.attacker_color > 0);
 
 	movement_data.allies  = (IF_WHITE & board.occupancy[white]) | (IF_BLACK & board.occupancy[black]);
 	movement_data.enemies = (IF_WHITE & board.occupancy[black]) | (IF_BLACK & board.occupancy[white]);
 
-	const uint64_t PIECE_IDX_MASK = ComputePieceIdxMaskHelper(board, picked_square_idx);
+	const uint64_t PIECE_IDX_MASK = ComputePieceIdxMaskHelper(board, movement_data.picked_square_idx);
 
 	movement_data.picked_piece_type = (int)std::countr_zero(PIECE_IDX_MASK);
 }
 
-void GetMovementInfoSystem::placementInfo(const InitGameState::Board& board, MovementData& movement_data, int placement_square_idx)
+void GetMovementInfoSystem::placementInfo(const InitGameState::Board& board, MovementData& movement_data)
 {
 	/*
 	* Handles determining occupancy where the piece is supposed to be placed.
@@ -46,7 +63,7 @@ void GetMovementInfoSystem::placementInfo(const InitGameState::Board& board, Mov
 
 	using enum occupancyInfo::occupancy;
 
-	const uint64_t PIECE_IDX_MASK = ComputePieceIdxMaskHelper(board, placement_square_idx);
+	const uint64_t PIECE_IDX_MASK = ComputePieceIdxMaskHelper(board, movement_data.placement_square_idx);
 
 	const uint64_t IF_NO_PIECES = -(PIECE_IDX_MASK == 0);
 

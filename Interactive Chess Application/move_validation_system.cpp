@@ -304,42 +304,9 @@ uint64_t MoveValidationSystem::pawnValidation(const InitGameState::Board& board,
 	* enemy must make the move to your properly situated pawn
 	* it must be an initial double move
 	* only legal for a specified pawn at that specific turn
+	* **conditions for en-passant determined in board state
 	*/
 
-	//constexpr int WHITE_EN_PASSANT_RANK_IDX = 4;
-	//constexpr int BLACK_EN_PASSANT_RANK_IDX = 3;
-
-	////if the rank is correct
-	//const uint64_t IF_WHITE_PASSANT_RANK = -( (movement_data.picked_square_idx / RANKS) == WHITE_EN_PASSANT_RANK_IDX);
-	//const uint64_t IF_BLACK_PASSANT_RANK = -( (movement_data.picked_square_idx / RANKS) == BLACK_EN_PASSANT_RANK_IDX);
-
-	////if an enemy is adjacent
-	//constexpr int SIDE = 1;
-
-	//const uint64_t PICKED_BIT_MASK = 1ULL << movement_data.picked_square_idx;
-
-	//uint64_t if_black_pawn_left   = -(int64_t)( ( (PICKED_BIT >> SIDE) & board.pieces[black_pawn] ) > 0 );
-	//uint64_t if_black_pawn_right  = -(int64_t)( ( (PICKED_BIT << SIDE) & board.pieces[black_pawn] ) > 0 );
-	//uint64_t if_white_pawn_right  = -(int64_t)( ( (PICKED_BIT << SIDE) & board.pieces[white_pawn] ) > 0 );
-	//uint64_t if_white_pawn_left   = -(int64_t)( ( (PICKED_BIT >> SIDE) & board.pieces[white_pawn] ) > 0 );
-
-	//const uint64_t IF_BLACK_PIECE_ADJACENT = -( (if_black_pawn_left | if_black_pawn_right) > 0);
-	//const uint64_t IF_WHITE_PIECE_ADJACENT = -( (if_white_pawn_left | if_white_pawn_right) > 0);
-
-	////if the en-passant opportunity is disallowed
-	//const uint64_t PLACED_BIT_MASK = 1ULL << movement_data.placement_square_idx;
-
-	//uint64_t if_white_disallowed = -(int64_t)( (movement_data.white_disallowed_passant_mask & PICKED_BIT) > 0);
-	//uint64_t if_black_disallowed = -(int64_t)( (movement_data.black_disallowed_passant_mask & PICKED_BIT) > 0);
-
-	////if en-passant
-	//const uint64_t IF_WHITE_PASSANT =
-	//	IF_WHITE & IF_WHITE_PASSANT_RANK & movement_data.if_black_init_move & IF_BLACK_PIECE_ADJACENT & ~if_white_disallowed;
-
-	//const uint64_t IF_BLACK_PASSANT =
-	//	IF_BLACK & IF_BLACK_PASSANT_RANK & movement_data.if_white_init_move & IF_WHITE_PIECE_ADJACENT & ~if_black_disallowed;
-
-	//en-passant
 	constexpr int SIDE = 1;
 	const uint64_t PICKED_BIT_MASK = 1ULL << movement_data.picked_square_idx;
 
@@ -360,68 +327,13 @@ uint64_t MoveValidationSystem::pawnValidation(const InitGameState::Board& board,
 		(movement_data.passant_mask & IF_WHITE_PAWN_LEFT  & (PICKED_BIT_MASK >> DOWN_LEFT) )  |
 		(movement_data.passant_mask & IF_WHITE_PAWN_RIGHT & (PICKED_BIT_MASK >> DOWN_RIGHT) )
 	;
-
 	pawn_mask |= EN_PASSANT_MASK;
 
-	//if passant was available, mark that field
-	//this is done when a pawn piece is moved double ahead from its initial position
-	//constexpr int UP = 8;
-	//constexpr int DOWN = 8;
-	//movement_data.previous_placed_bit = PLACED_BIT;
-
-	//const uint64_t ADJUST_TO_WHITE_PASSANT = movement_data.previous_placed_bit << UP;
-	//const uint64_t ADJUST_TO_BLACK_PASSANT = movement_data.previous_placed_bit >> DOWN;
-
-	////these get reappropriated from the perspecitve of the piece that just moved
-	//if_white_pawn_left  = -(int64_t)( ( (PLACED_BIT >> SIDE) & board.pieces[white_pawn]) > 0);
-	//if_white_pawn_right = -(int64_t)( ( (PLACED_BIT << SIDE) & board.pieces[white_pawn]) > 0);
-	//if_black_pawn_left  = -(int64_t)( ( (PLACED_BIT >> SIDE) & board.pieces[black_pawn]) > 0);
-	//if_black_pawn_right = -(int64_t)( ( (PLACED_BIT << SIDE) & board.pieces[black_pawn]) > 0);
-
-	//const uint64_t IF_NEXT_TO_WHITE_PAWN = if_white_pawn_left | if_white_pawn_right;
-	//if_white_disallowed = -(int64_t)( (ADJUST_TO_WHITE_PASSANT & movement_data.white_disallowed_passant_mask) > 0);
-
-	//const uint64_t IF_NEXT_TO_BLACK_PAWN = if_black_pawn_left | if_black_pawn_right;
-	//if_black_disallowed = -(int64_t)( (ADJUST_TO_BLACK_PASSANT & movement_data.black_disallowed_passant_mask) > 0);
-
-	//const uint64_t POSSIBLE_WHITE_PASSANT = IF_NEXT_TO_WHITE_PAWN & ~if_white_disallowed;
-	//const uint64_t POSSIBLE_BLACK_PASSANT = IF_NEXT_TO_BLACK_PAWN & ~if_black_disallowed;
-	//
-	//const uint64_t EN_PASSANT_OCCURED_MASK = EN_PASSANT_MASK & PLACED_BIT;
-	//movement_data.white_disallowed_passant_mask |= (movement_data.if_previous_white_passant & ADJUST_TO_WHITE_PASSANT) ^ EN_PASSANT_OCCURED_MASK;
-	//movement_data.black_disallowed_passant_mask |= (movement_data.if_previous_black_passant & ADJUST_TO_BLACK_PASSANT) ^ EN_PASSANT_OCCURED_MASK;
-
-	//movement_data.if_previous_white_passant = POSSIBLE_WHITE_PASSANT;
-	//movement_data.if_previous_black_passant = POSSIBLE_BLACK_PASSANT;
-
-	//need to get the previous state where a passant might have been possible
-	//my previous code is coupled with whichever piece was picked, so now I have to adjust properly
-	//if: left or right of the double moved pawn is an enemy pawn,
-    //    check if the place for the new en passant hasn't been disallowed
-	//    after this shit gets set you have to make a condition that if this shit just succeeded then it cannot set the disallowed_mask just yet  		  
-    //    this can also introduce a bug whereby the pawn has moved to the en passant, and if the move actually occured then I must not turn the disallowal on there
-	//is can do it by checking from the perspective of an enemy moved double piece
-
-	////if any player moved with a double initial move, mark that
-	//constexpr uint64_t SECOND_FORWARD_SQUARE_MASK = 0x100;
-	//constexpr int SECORD_FORWARD_SQUARE_ADJUSTMENT = 8;
-	//double_vert_adjust += SECORD_FORWARD_SQUARE_ADJUSTMENT;
-
-	//const uint64_t WHITE_DOUBLE_MOVE_MASK =  (  SECOND_FORWARD_SQUARE_MASK << (movement_data.picked_square_idx  +  VERT_ADJUST) );
-	//const uint64_t BLACK_DOUBLE_MOVE_MASK =  ( (SECOND_FORWARD_SQUARE_MASK <<  movement_data.picked_square_idx) >> double_vert_adjust);
-	//const uint64_t IF_WHITE_DOUBLE_MOVED  = -( (PLACED_BIT & WHITE_DOUBLE_MOVE_MASK) > 0);
-	//const uint64_t IF_BLACK_DOUBLE_MOVED  = -( (PLACED_BIT & BLACK_DOUBLE_MOVE_MASK) > 0);
-
-	////save that double move occured, for the next iteration
-	//movement_data.if_white_init_move = (IF_WHITE & IF_WHITE_DOUBLE_MOVED);
-	//movement_data.if_black_init_move = (IF_BLACK & IF_BLACK_DOUBLE_MOVED);
+	//flag that passant has been used for the upcoming board update
+	movement_data.passant_used = (EN_PASSANT_MASK > 0);
 
 	//update board state
 	return pawn_mask;
-
-	//current issues
-	//disallowed passant mask must reset for pieces that move out of that position or get overtaken
-	//the overtaken piece must actually be overtaken by the board_updating_system so that's going to be a fucking mess to implement
 }
 
 //following functions have a board argument, because pawn validation required it, and all functions need same

@@ -14,9 +14,10 @@ public:
 	static uint64_t movementValidation(MovementData&, uint64_t);
 	static void updateBoards(InitGameState::Board&, MovementData&, PositionalEvalComponent&, uint64_t);
 private:
-	static void clearPickedPieceHelper(InitGameState::Board&, MovementData&, int);
-	static void clearOvertakenSquareHelper(InitGameState::Board&, MovementData&, PositionalEvalComponent&, uint64_t, int, int);
-	static void placeNewPieceHelper(InitGameState::Board&, MovementData&, uint64_t, int, int);
+	static void clearPickedPieceHelper(InitGameState::Board&, MovementData&);
+	static void clearOvertakenSquareHelper(InitGameState::Board&, MovementData&, PositionalEvalComponent&, uint64_t);
+	static void clearPassantedPieceHelper(InitGameState::Board&, MovementData&, PositionalEvalComponent&, uint64_t);
+	static void placeNewPieceHelper(InitGameState::Board&, MovementData&, uint64_t);
 	static uint64_t enPassantPrecondition(MovementData&);
-	static void enPassantHelper(InitGameState::Board&, MovementData&);
+	static void enPassantDetectionHelper(const InitGameState::Board&, MovementData&);
 };

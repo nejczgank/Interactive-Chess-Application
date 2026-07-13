@@ -8,8 +8,9 @@
 
 class GetMovementInfoSystem {
 public:
-	static void pickingInfo(const InitGameState::Board&, MovementData&, int, int);
-	static void placementInfo(const InitGameState::Board&, MovementData&, int);
+	static void basicInfo(const InitGameState::Board&, MovementData&, int picked_square_idx, int placement_square_idx);
+	static void pickingInfo(const InitGameState::Board&, MovementData&);
+	static void placementInfo(const InitGameState::Board&, MovementData&);
 private:
 	static uint64_t ComputePieceIdxMaskHelper(const InitGameState::Board& board, int);
 };
