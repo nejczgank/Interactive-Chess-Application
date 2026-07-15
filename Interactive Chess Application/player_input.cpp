@@ -80,8 +80,8 @@ bool PlayerInput::turnValidation(InitGameState::Board& board, MovementData& MOVE
 {
 	using enum occupancyInfo::occupancy;
 
-	const bool PICKED_SQUARE_EMPTY = board.occupancy[white] & (1ULL << MOVEMENT_DATA.picked_piece_type) |
-									 board.occupancy[black] & (1ULL << MOVEMENT_DATA.picked_piece_type)
+	const bool PICKED_SQUARE_EMPTY = board.occupancy[white] & (1ULL << MOVEMENT_DATA.picked_square_idx) |
+									 board.occupancy[black] & (1ULL << MOVEMENT_DATA.picked_square_idx)
 	;
 
 	const bool BOTH_WHITE = (MOVEMENT_DATA.attacker_color == 0 && WHITE_COLOR == 1);
@@ -89,5 +89,5 @@ bool PlayerInput::turnValidation(InitGameState::Board& board, MovementData& MOVE
 
 	const bool IS_CORRECT = PICKED_SQUARE_EMPTY && (BOTH_WHITE || BOTH_BLACK);
 
-	return IS_CORRECT;
+	return IS_CORRECT;//jumanji
 }

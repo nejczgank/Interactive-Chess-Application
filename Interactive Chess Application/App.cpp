@@ -79,6 +79,8 @@ int main() {
 		//Set previous board state for en-passant
 		//GetMovementInfoSystem::updatePreviousPawnState(board, movement_data);
 
+		const int check = SpecialMoveValidationSystem::checkmateHandler(board, movement_data, VALID_PIECE_PLACEMENT);
+
 		//Update the board with new values
 		BoardUpdatingSystem::updateBoards(board, movement_data, pos_eval, VALID_PIECE_PLACEMENT);
 

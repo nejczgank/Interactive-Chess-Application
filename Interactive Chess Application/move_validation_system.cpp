@@ -439,7 +439,7 @@ uint64_t MoveValidationSystem::kingValidation(const InitGameState::Board&, Movem
 	return king_mask;
 }
 
-uint64_t MoveValidationSystem::validator(InitGameState::Board& board, MovementData& movement_data)
+uint64_t MoveValidationSystem::validator(const InitGameState::Board& board, MovementData& movement_data)
 {
 	//this is how you define the type of the jump table. it's defining the type of the function pointer
 	//uint64_t specifies the return value (can be empty if void), (*) is the placeholder of the function pointer
