@@ -5,7 +5,6 @@
 #include "init_game_state.h"
 #include "display.h"
 #include "player_input.h"
-#include "positional_evaluation.h"
 #include "movement_data_component.h"
 #include "occupancy_info.h"
 #include "ray_transposition_info.h"

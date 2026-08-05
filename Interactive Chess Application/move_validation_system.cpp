@@ -72,19 +72,21 @@ uint64_t MoveValidationSystem::rayHalvingHelper(const MovementData& movement_dat
 	uint64_t transposed_ray_mask = 0;
 
 	//the implementation of the ray transformation mechanic varies, whether it's diagonal or nondiagonal
-	if (full_ray == anti_diagonal || full_ray == diagonal) 
-	{ 
-		transposed_ray_mask = diagonalTransformation(movement_data, full_ray);
-	}
-	else 
+	switch (full_ray)
 	{
+	case anti_diagonal:
+	case diagonal:
+		transposed_ray_mask = diagonalTransformation(movement_data, full_ray);
+		break;
+	default:
 		transposed_ray_mask = nonDiagonalTransformation(movement_data, SEL_RAY_ROTATION, full_ray);
+		break;
 	}
 
 	//ray halving creates a mask that intersects with full ray to isolate the specific direction
 	//**1ULL is at first idx. from there there are 63 possible shifts
 	//**+1 corrects so that the origin square isn't included, even at idx 0
-	const uint64_t IF_UPPER_HALF = IF_RAY_HALF & ~( (1ULL << (movement_data.picked_square_idx + 1) ) - 1);
+	const uint64_t IF_UPPER_HALF = IF_RAY_HALF  & ~( (1ULL << (movement_data.picked_square_idx + 1) ) - 1);
 	const uint64_t IF_LOWER_HALF = ~IF_RAY_HALF & ( (1ULL << movement_data.picked_square_idx) - 1);
 	const uint64_t HALF_MASK = IF_UPPER_HALF | IF_LOWER_HALF;
 
@@ -239,7 +241,7 @@ uint64_t MoveValidationSystem::pawnValidation(const InitGameState::Board& board,
 	constexpr uint64_t VERT_ADJUST = 8;
 
 	const uint64_t REGULAR_WHITE_MOVE_MASK = (1ULL << (movement_data.picked_square_idx + VERT_ADJUST) );
-	const uint64_t REGULAR_BLACK_MOVE_MASK = ((1ULL << movement_data.picked_square_idx) >> VERT_ADJUST);
+	const uint64_t REGULAR_BLACK_MOVE_MASK = ( (1ULL << movement_data.picked_square_idx) >> VERT_ADJUST);
 	const uint64_t REGULAR_WHITE_MOVE_BLOCKED_MASK = board.occupancy[all] & REGULAR_WHITE_MOVE_MASK;
 	const uint64_t REGULAR_BLACK_MOVE_BLOCKED_MASK = board.occupancy[all] & REGULAR_BLACK_MOVE_MASK;
 	const uint64_t REGULAR_BLOCKED_MASK = (IF_WHITE & REGULAR_WHITE_MOVE_BLOCKED_MASK) | (IF_BLACK & REGULAR_BLACK_MOVE_BLOCKED_MASK);

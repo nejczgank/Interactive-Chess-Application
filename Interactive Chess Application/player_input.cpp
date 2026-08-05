@@ -89,5 +89,5 @@ bool PlayerInput::turnValidation(InitGameState::Board& board, MovementData& MOVE
 
 	const bool IS_CORRECT = PICKED_SQUARE_EMPTY && (BOTH_WHITE || BOTH_BLACK);
 
-	return IS_CORRECT;//jumanji
+	return IS_CORRECT;
 }

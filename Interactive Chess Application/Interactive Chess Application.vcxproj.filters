@@ -22,12 +22,6 @@
     <Filter Include="Header Files\Namespaces">
       <UniqueIdentifier>{9d2ff586-709d-493e-b05b-ae4739370637}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\OldCode">
-      <UniqueIdentifier>{02f5a54a-15d0-41d5-a8b6-bfd442c6d777}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\OldCode">
-      <UniqueIdentifier>{797da4b9-e07e-473d-85fe-4844697bf366}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Source Files\MoveValidationSystems">
       <UniqueIdentifier>{24e2000b-6907-4534-ad55-9262e068c661}</UniqueIdentifier>
     </Filter>
@@ -44,12 +38,6 @@
     </ClCompile>
     <ClCompile Include="display.cpp">
       <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="bitwise_move_validation.cpp">
-      <Filter>Source Files\OldCode</Filter>
-    </ClCompile>
-    <ClCompile Include="positional_evaluation.cpp">
-      <Filter>Source Files\OldCode</Filter>
     </ClCompile>
     <ClCompile Include="App.cpp">
       <Filter>Source Files\Main</Filter>
@@ -76,12 +64,6 @@
     </ClInclude>
     <ClInclude Include="display.h">
       <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="attack_table_component.h">
-      <Filter>Header Files\MoveValidationComponents</Filter>
-    </ClInclude>
-    <ClInclude Include="attack_table_system.h">
-      <Filter>Header Files\MoveValidationSystems</Filter>
     </ClInclude>
     <ClInclude Include="board_updating_system.h">
       <Filter>Header Files\MoveValidationSystems</Filter>
@@ -110,12 +92,6 @@
     <ClInclude Include="positional_eval_system.h">
       <Filter>Header Files\MoveValidationSystems</Filter>
     </ClInclude>
-    <ClInclude Include="positional_evaluation.h">
-      <Filter>Header Files\OldCode</Filter>
-    </ClInclude>
-    <ClInclude Include="bitwise_move_validation.h">
-      <Filter>Header Files\OldCode</Filter>
-    </ClInclude>
     <ClInclude Include="special_move_validation_system.h">
       <Filter>Header Files\MoveValidationSystems</Filter>
     </ClInclude>
@@ -133,6 +109,9 @@
     </ClInclude>
     <ClInclude Include="which_player_info.h">
       <Filter>Header Files\Namespaces</Filter>
+    </ClInclude>
+    <ClInclude Include="stalemate_data_component.h">
+      <Filter>Header Files\MoveValidationComponents</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -3,8 +3,6 @@
 #include "init_game_state.h"
 #include "player_input.h"
 #include "display.h"
-#include "bitwise_move_validation.h"
-#include "positional_evaluation.h"
 #include "movement_data_component.h"
 #include "movement_data_system.h"
 #include "move_validation_system.h"
@@ -13,6 +11,7 @@
 #include "positional_eval_system.h"
 #include "special_move_validation_component.h"
 #include "special_move_validation_system.h"
+#include "stalemate_data_component.h"
 
 int main() {
 
@@ -31,6 +30,9 @@ int main() {
 
 	//bool is_king_check = SpecialMoveValidationSystem::isKingCheck(board, 0);
 
+	//Initialize stalemate data
+	StalemateDataComponent stalemate_data;
+
 	//Initialize player turn state
 	bool white_turn = 1;
 	bool black_turn = 0;
@@ -43,7 +45,6 @@ int main() {
 
 		//Input validation
 		auto [picked_square_idx, placement_square_idx] = PlayerInput::moveHandling(); //obtain square indices
-		
 		
 		//Determine color of the picked and placed piece
 		GetMovementInfoSystem::basicInfo(board, movement_data, picked_square_idx, placement_square_idx);
@@ -79,7 +80,7 @@ int main() {
 		//Set previous board state for en-passant
 		//GetMovementInfoSystem::updatePreviousPawnState(board, movement_data);
 
-		const int check = SpecialMoveValidationSystem::checkmateHandler(board, movement_data, VALID_PIECE_PLACEMENT);
+		const int check = SpecialMoveValidationSystem::checkmateHandler(board, movement_data, VALID_PIECE_PLACEMENT, stalemate_data, TURN);
 
 		//Update the board with new values
 		BoardUpdatingSystem::updateBoards(board, movement_data, pos_eval, VALID_PIECE_PLACEMENT);
