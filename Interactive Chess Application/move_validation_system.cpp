@@ -338,8 +338,6 @@ uint64_t MoveValidationSystem::pawnValidation(const InitGameState::Board& board,
 	return pawn_mask;
 }
 
-//following functions have a board argument, because pawn validation required it, and all functions need same
-//parameters for the jump table to execute
 uint64_t MoveValidationSystem::knightValidation(const InitGameState::Board&, MovementData& movement_data)
 {
 	uint64_t knight_mask = 0;
@@ -349,25 +347,27 @@ uint64_t MoveValidationSystem::knightValidation(const InitGameState::Board&, Mov
 	constexpr uint64_t NOT_G_MASK = 0xbfbfbfbfbfbfbfbf;
 	constexpr uint64_t NOT_H_MASK = 0x7f7f7f7f7f7f7f7f;
 
+	const uint64_t PICKED_BIT_MASK = (1ULL << movement_data.picked_square_idx);
+
 	constexpr int UP_RIGHT = 17;
 	constexpr int RIGHT_UP = 10;
 	constexpr int RIGHT_DOWN = 6;
 	constexpr int DOWN_RIGHT = 15;
 
-	knight_mask |= ( (1ULL << movement_data.picked_square_idx) & NOT_H_MASK) << UP_RIGHT & ~movement_data.allies;
-	knight_mask |= ( (1ULL << movement_data.picked_square_idx) & NOT_G_MASK & NOT_H_MASK) << RIGHT_UP & ~movement_data.allies;
-	knight_mask |= ( (1ULL << movement_data.picked_square_idx) & NOT_G_MASK & NOT_H_MASK) >> RIGHT_DOWN & ~movement_data.allies;
-	knight_mask |= ( (1ULL << movement_data.picked_square_idx) & NOT_H_MASK) >> DOWN_RIGHT & ~movement_data.allies;
-
+	knight_mask |= (PICKED_BIT_MASK & NOT_H_MASK)			   << UP_RIGHT   & ~movement_data.allies;
+	knight_mask |= (PICKED_BIT_MASK & NOT_G_MASK & NOT_H_MASK) << RIGHT_UP   & ~movement_data.allies;
+	knight_mask |= (PICKED_BIT_MASK & NOT_G_MASK & NOT_H_MASK) >> RIGHT_DOWN & ~movement_data.allies;
+	knight_mask |= (PICKED_BIT_MASK & NOT_H_MASK)			   >> DOWN_RIGHT & ~movement_data.allies;
+		
 	constexpr int DOWN_LEFT = 17;
 	constexpr int LEFT_DOWN = 10;
 	constexpr int LEFT_UP = 6;
 	constexpr int UP_LEFT = 15;
 
-	knight_mask |= ( (1ULL << movement_data.picked_square_idx) & NOT_A_MASK) >> DOWN_LEFT & ~movement_data.allies;
-	knight_mask |= ( (1ULL << movement_data.picked_square_idx) & NOT_B_MASK & NOT_A_MASK) >> LEFT_DOWN & ~movement_data.allies;
-	knight_mask |= ( (1ULL << movement_data.picked_square_idx) & NOT_B_MASK & NOT_A_MASK) << LEFT_UP & ~movement_data.allies;
-	knight_mask |= ( (1ULL << movement_data.picked_square_idx) & NOT_A_MASK) << UP_LEFT & ~movement_data.allies;
+	knight_mask |= (PICKED_BIT_MASK & NOT_A_MASK)			   >> DOWN_LEFT & ~movement_data.allies;
+	knight_mask |= (PICKED_BIT_MASK & NOT_B_MASK & NOT_A_MASK) >> LEFT_DOWN & ~movement_data.allies;
+	knight_mask |= (PICKED_BIT_MASK & NOT_B_MASK & NOT_A_MASK) << LEFT_UP   & ~movement_data.allies;
+	knight_mask |= (PICKED_BIT_MASK & NOT_A_MASK)			   << UP_LEFT   & ~movement_data.allies;
 
 	return knight_mask;
 }
@@ -421,22 +421,95 @@ uint64_t MoveValidationSystem::queenValidation(const InitGameState::Board&, Move
 	return queen_mask;
 }
 
-uint64_t MoveValidationSystem::kingValidation(const InitGameState::Board&, MovementData& movement_data)
+uint64_t MoveValidationSystem::kingValidation(const InitGameState::Board& board, MovementData& movement_data)
 {
-	uint64_t king_mask = 0;
+	using enum pieceInfo::piece;
+	using enum kingMoveIndicies::move;
+
+	constexpr int UP = 8;
+	constexpr int DOWN = -8;
+	constexpr int RIGHT = 1;
+	constexpr int LEFT = -1;
+	
+	constexpr int UP_RIGHT = 9;
+	constexpr int UP_LEFT = 7;
+	constexpr int DOWN_LEFT = -9;
+	constexpr int DOWN_RIGHT = -7;
+
+	constexpr int ALL_SHIFT_DIRS[] = 
+	{
+		UP, DOWN, RIGHT, LEFT,
+		UP_RIGHT, UP_LEFT, DOWN_LEFT, DOWN_RIGHT
+	};
+
+	const uint64_t PICKED_BIT_MASK = 1ULL << movement_data.picked_square_idx;
 
 	constexpr uint64_t NOT_A_FILE = ~0x1010101010101010;
 	constexpr uint64_t NOT_H_FILE = ~0x8080808080808080;
 
-	king_mask |= ( (1ULL << movement_data.picked_square_idx) << 8) & ~movement_data.allies;
-	king_mask |= ( (1ULL << movement_data.picked_square_idx) >> 8) & ~movement_data.allies;
-	king_mask |= ( (1ULL << movement_data.picked_square_idx) << 1) & NOT_A_FILE & ~movement_data.allies;
-	king_mask |= ( (1ULL << movement_data.picked_square_idx) >> 1) & NOT_H_FILE & ~movement_data.allies;
+	const uint64_t CLIPPED_MOVED_BITS_MASK[] =
+	{
+		(PICKED_BIT_MASK << UP),
+		(PICKED_BIT_MASK >> -DOWN),
+		(PICKED_BIT_MASK << RIGHT)	     & NOT_A_FILE,
+		(PICKED_BIT_MASK >> -LEFT)		 & NOT_H_FILE,
 
-	king_mask |= ( ( (1ULL << movement_data.picked_square_idx) << 9) & NOT_A_FILE) & ~movement_data.allies;
-	king_mask |= ( ( (1ULL << movement_data.picked_square_idx) << 7) & NOT_H_FILE) & ~movement_data.allies;
-	king_mask |= ( ( (1ULL << movement_data.picked_square_idx) >> 9) & NOT_H_FILE) & ~movement_data.allies;
-	king_mask |= ( ( (1ULL << movement_data.picked_square_idx) >> 7) & NOT_A_FILE) & ~movement_data.allies;
+		(PICKED_BIT_MASK << UP_RIGHT)    & NOT_A_FILE,
+		(PICKED_BIT_MASK << UP_LEFT)     & NOT_H_FILE,
+		(PICKED_BIT_MASK >> -DOWN_LEFT)  & NOT_H_FILE,
+		(PICKED_BIT_MASK >> -DOWN_RIGHT) & NOT_A_FILE
+	};
+	
+	/*
+	 * here a geometric series sum is used to compute a 3x3 buffer on the spot,
+	 * this buffer is responsible for preventing two enemy kings moving to adjacent squares
+	 * this calculation has to run 8 times to construct masks for all possible directions the king can be moved to.
+	 * shifting the already computed mask causes issues with
+	 ** the mathematical formula was written by AI. Eventually I'll learn more about deriving mathematical series on my own,
+	 ** but for now this works, since I understand the reasoning for why I choose this approach.
+	*/
+	
+	constexpr int ALL_DIRECTIONS = 8;
+	uint64_t ENEMY_KING_ADJACENT[8] = {};
+	
+	const uint64_t ENEMY_KING = movement_data.enemies & (board.pieces[white_king] | board.pieces[black_king]);
+	
+	constexpr uint64_t H_FILE_MASK = 0x8080808080808080;
+	constexpr uint64_t A_FILE_MASK = 0x101010101010101;
+	const uint64_t IF_A_FILE_OVERLAP = -( (A_FILE_MASK & (1ULL << movement_data.placement_square_idx) ) > 0);
+	const uint64_t IF_H_FILE_OVERLAP = -( (H_FILE_MASK & (1ULL << movement_data.placement_square_idx) ) > 0);
+
+	//start of the mathematical formula for a 3x3 king buffer, adjusted by placement and direction
+	const int TARGET_SQUARE_IDX = movement_data.picked_square_idx - 9;
+
+	for (int i = 0; i < ALL_DIRECTIONS; i++) 
+	{
+		int DIRECTED_SQUARE_IDX = TARGET_SQUARE_IDX + ALL_SHIFT_DIRS[i];
+
+		const uint64_t CRUDE_KING_BUFFER_MASK = (TARGET_SQUARE_IDX >= 0) ?
+			(  7ULL <<  DIRECTED_SQUARE_IDX       ) * 65793ULL			 : //prevents upper bound mask from clipping
+			( (7ULL << (DIRECTED_SQUARE_IDX += 8) ) * 65793ULL) >> 17;	   //prevents lower bound mask from clipping
+		
+		const uint64_t KING_BUFFER_MASK = (IF_A_FILE_OVERLAP  & ~H_FILE_MASK	   & CRUDE_KING_BUFFER_MASK) |
+									   	  (IF_H_FILE_OVERLAP  & ~A_FILE_MASK	   & CRUDE_KING_BUFFER_MASK) |
+										  (~IF_A_FILE_OVERLAP & ~IF_H_FILE_OVERLAP & CRUDE_KING_BUFFER_MASK)
+		;
+
+		//append conditional mask to static array
+		ENEMY_KING_ADJACENT[i] = -( (KING_BUFFER_MASK & ENEMY_KING) > 0);
+	}
+
+	//possible moves, no enemy king in sight, no overtaking allies
+	uint64_t king_mask = 0;
+	king_mask |= CLIPPED_MOVED_BITS_MASK[up]		 & ~ENEMY_KING_ADJACENT[up]			& ~movement_data.allies;
+	king_mask |= CLIPPED_MOVED_BITS_MASK[down]		 & ~ENEMY_KING_ADJACENT[down]		& ~movement_data.allies;
+	king_mask |= CLIPPED_MOVED_BITS_MASK[right]		 & ~ENEMY_KING_ADJACENT[right]		& ~movement_data.allies;
+	king_mask |= CLIPPED_MOVED_BITS_MASK[left]		 & ~ENEMY_KING_ADJACENT[left]		& ~movement_data.allies;
+
+	king_mask |= CLIPPED_MOVED_BITS_MASK[up_right]   & ~ENEMY_KING_ADJACENT[up_right]	& ~movement_data.allies;
+	king_mask |= CLIPPED_MOVED_BITS_MASK[up_left]    & ~ENEMY_KING_ADJACENT[up_left]	& ~movement_data.allies;
+	king_mask |= CLIPPED_MOVED_BITS_MASK[down_left]  & ~ENEMY_KING_ADJACENT[down_left]  & ~movement_data.allies;
+	king_mask |= CLIPPED_MOVED_BITS_MASK[down_right] & ~ENEMY_KING_ADJACENT[down_right] & ~movement_data.allies;
 
 	return king_mask;
 }

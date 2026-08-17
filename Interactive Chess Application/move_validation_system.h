@@ -11,6 +11,7 @@
 #include "ray_direction_info.h"
 #include "piece_info.h"
 #include "which_player_info.h"
+#include "king_move_indicies.h"
 
 class MoveValidationSystem {
 public:
@@ -21,6 +22,7 @@ private:
 	static uint64_t diagonalTransformation(const MovementData&, uint64_t);
 	static uint64_t nonDiagonalTransformation(const MovementData&, uint64_t, uint64_t);
 	static uint64_t findBlockersHelper(const MovementData&, uint64_t, uint64_t, whichPlayerInfo::playerInfo);
+
 	static uint64_t pawnValidation(const InitGameState::Board&, MovementData&);
 	static uint64_t knightValidation(const InitGameState::Board&, MovementData&);
 	static uint64_t rookValidation(const InitGameState::Board&, MovementData&);

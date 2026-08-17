@@ -138,6 +138,7 @@
   <ItemGroup>
     <ClInclude Include="board_updating_system.h" />
     <ClInclude Include="display.h" />
+    <ClInclude Include="king_move_indicies.h" />
     <ClInclude Include="stalemate_data_component.h" />
     <ClInclude Include="which_player_info.h" />
     <ClInclude Include="ray_transposition_info.h" />

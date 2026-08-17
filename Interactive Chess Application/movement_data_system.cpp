@@ -91,18 +91,18 @@ uint64_t GetMovementInfoSystem::ComputePieceIdxMaskHelper(const InitGameState::B
 	const uint64_t BIT_MASK = (1ULL << square_idx);
 
 	const uint64_t PIECE_IDX_MASK =
-		(1ULL * ((board.pieces[white_pawn]   & BIT_MASK) > 0) << white_pawn)   |
-		(1ULL * ((board.pieces[white_knight] & BIT_MASK) > 0) << white_knight) |
-		(1ULL * ((board.pieces[white_rook]   & BIT_MASK) > 0) << white_rook)   |
-		(1ULL * ((board.pieces[white_bishop] & BIT_MASK) > 0) << white_bishop) |
-		(1ULL * ((board.pieces[white_queen]  & BIT_MASK) > 0) << white_queen)  |
-		(1ULL * ((board.pieces[white_king]   & BIT_MASK) > 0) << white_king)   |
-		(1ULL * ((board.pieces[black_pawn]   & BIT_MASK) > 0) << black_pawn)   |
-		(1ULL * ((board.pieces[black_knight] & BIT_MASK) > 0) << black_knight) |
-		(1ULL * ((board.pieces[black_rook]   & BIT_MASK) > 0) << black_rook)   |
-		(1ULL * ((board.pieces[black_bishop] & BIT_MASK) > 0) << black_bishop) |
-		(1ULL * ((board.pieces[black_queen]  & BIT_MASK) > 0) << black_queen)  |
-		(1ULL * ((board.pieces[black_king]   & BIT_MASK) > 0) << black_king)
+		(1ULL * ( (board.pieces[white_pawn]   & BIT_MASK) > 0) << white_pawn)   |
+		(1ULL * ( (board.pieces[white_knight] & BIT_MASK) > 0) << white_knight) |
+		(1ULL * ( (board.pieces[white_rook]   & BIT_MASK) > 0) << white_rook)   |
+		(1ULL * ( (board.pieces[white_bishop] & BIT_MASK) > 0) << white_bishop) |
+		(1ULL * ( (board.pieces[white_queen]  & BIT_MASK) > 0) << white_queen)  |
+		(1ULL * ( (board.pieces[white_king]   & BIT_MASK) > 0) << white_king)   |
+		(1ULL * ( (board.pieces[black_pawn]   & BIT_MASK) > 0) << black_pawn)   |
+		(1ULL * ( (board.pieces[black_knight] & BIT_MASK) > 0) << black_knight) |
+		(1ULL * ( (board.pieces[black_rook]   & BIT_MASK) > 0) << black_rook)   |
+		(1ULL * ( (board.pieces[black_bishop] & BIT_MASK) > 0) << black_bishop) |
+		(1ULL * ( (board.pieces[black_queen]  & BIT_MASK) > 0) << black_queen)  |
+		(1ULL * ( (board.pieces[black_king]   & BIT_MASK) > 0) << black_king)
 	;
 
 	return PIECE_IDX_MASK;

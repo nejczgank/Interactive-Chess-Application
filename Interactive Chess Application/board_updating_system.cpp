@@ -29,6 +29,7 @@ void BoardUpdatingSystem::updateBoards(InitGameState::Board& board, MovementData
 
 	switch (PAWN_DOUBLE_MOVED)
 	{
+	case false:
 	  case true:
 		  //find the mask of where a pawn can en-passant to
 		  enPassantDetectionHelper(board, movement_data);
@@ -242,22 +243,3 @@ void BoardUpdatingSystem::enPassantDetectionHelper(const InitGameState::Board& b
 
 	movement_data.passant_mask = WHITE_PASSANT_MASK | BLACK_PASSANT_MASK;
 }
-
-//PREVIOUS ROUNDABOUT CODE THAT I SIMPLIFIED BUT I'M KEEPING AS A REFERENCE FOR ONE FUTURE COMMIT
-//void BoardUpdatingSystem::enPassantOccurrenceHelper(MovementData& movement_data)
-//{
-//	using enum occupancyInfo::occupancy;
-//	using enum pieceInfo::piece;
-//
-//	//a piece was overtaken
-//	const uint64_t IF_PASSANT_USED = -(movement_data.passant_used);
-//	const uint64_t REGULAR_CLEARING_MASK = ~IF_PASSANT_USED & movement_data.placed_piece_type;
-//
-//	const uint64_t IF_WHITE_ATTACKER = -(movement_data.attacker_color == white);
-//	const uint64_t IF_BLACK_ATTACKER = -(movement_data.defender_color == black);
-//
-//	const uint64_t SEL_PAWN_COLOR_MASK = (IF_WHITE_ATTACKER & black_pawn) | (IF_BLACK_ATTACKER & white_pawn);
-//	const uint64_t PASSANT_CLEARING_MASK = IF_PASSANT_USED & SEL_PAWN_COLOR_MASK;
-//
-//	movement_data.placed_piece_type = (int)(REGULAR_CLEARING_MASK) | (PASSANT_CLEARING_MASK);
-//}
