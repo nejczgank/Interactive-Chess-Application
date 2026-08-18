@@ -82,7 +82,7 @@ int main() {
 
 		EvalCheckAndMateComponent check_data;
 		EvalCheckAndMateSystem::initState(board, movement_data, VALID_PIECE_PLACEMENT, stalemate_data, TURN, check_data);
-		const int check = EvalCheckAndMateSystem::checkmateHandler(board, movement_data, VALID_PIECE_PLACEMENT, stalemate_data, TURN, check_data);
+		const int check = EvalCheckAndMateSystem::checkmateHandler(check_data, stalemate_data);
 
 		//Update the board with new values
 		BoardUpdatingSystem::updateBoards(board, movement_data, pos_eval, VALID_PIECE_PLACEMENT);
