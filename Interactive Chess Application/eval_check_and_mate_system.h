@@ -7,13 +7,14 @@
 #include "init_game_state.h"
 #include "move_validation_system.h"
 #include "piece_info.h"
-#include "special_move_validation_component.h"
+#include "eval_check_and_mate_component.h"
 #include "board_updating_system.h"
 #include "stalemate_data_component.h"
 
-class SpecialMoveValidationSystem {
+class EvalCheckAndMateSystem {
 public:
-	static int checkmateHandler(const InitGameState::Board&, const MovementData&, const uint64_t, StalemateDataComponent&, const int);
+	static void initState(const InitGameState::Board&, const MovementData&, const uint64_t, StalemateDataComponent&, const int, EvalCheckAndMateComponent&);
+	static int checkmateHandler(EvalCheckAndMateComponent&);
 private:
 	static int isKingCheck(const InitGameState::Board&, const MovementData&, const uint64_t, const int, const int, const bool);
 	static void isPieceAtkHelper(const InitGameState::Board&, MovementData&, bool&, const int, const int(&)[6], const int(&)[6]);
@@ -21,6 +22,4 @@ private:
 	static void findTargetIndex(const InitGameState::Board&, MovementData&, const int(&)[6], bool);
 	static void findOccupation(const InitGameState::Board&, MovementData&, const int, const int, const bool);
 	static bool isKingCheckmate(const InitGameState::Board&, const MovementData&, const uint64_t, StalemateDataComponent&, const int, const int);
-	static bool castling();
-	static void stalemate();
 };

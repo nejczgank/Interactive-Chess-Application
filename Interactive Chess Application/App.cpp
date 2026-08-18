@@ -9,8 +9,8 @@
 #include "board_updating_system.h"
 #include "positional_eval_component.h"
 #include "positional_eval_system.h"
-#include "special_move_validation_component.h"
-#include "special_move_validation_system.h"
+#include "eval_check_and_mate_component.h"
+#include "eval_check_and_mate_system.h"
 #include "stalemate_data_component.h"
 
 int main() {
@@ -80,7 +80,9 @@ int main() {
 		//Set previous board state for en-passant
 		//GetMovementInfoSystem::updatePreviousPawnState(board, movement_data);
 
-		const int check = SpecialMoveValidationSystem::checkmateHandler(board, movement_data, VALID_PIECE_PLACEMENT, stalemate_data, TURN);
+		EvalCheckAndMateComponent check_data;
+		EvalCheckAndMateSystem::initState(board, movement_data, VALID_PIECE_PLACEMENT, stalemate_data, TURN, check_data);
+		const int check = EvalCheckAndMateSystem::checkmateHandler(board, movement_data, VALID_PIECE_PLACEMENT, stalemate_data, TURN, check_data);
 
 		//Update the board with new values
 		BoardUpdatingSystem::updateBoards(board, movement_data, pos_eval, VALID_PIECE_PLACEMENT);

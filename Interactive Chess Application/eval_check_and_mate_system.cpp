@@ -1,14 +1,49 @@
-#include "special_move_validation_system.h"
+#include "eval_check_and_mate_system.h"
 
-int SpecialMoveValidationSystem::checkmateHandler(const InitGameState::Board& BOARD, const MovementData& SEL_MOVEMENT_DATA, const uint64_t VALID_PIECE_PLACEMENT, StalemateDataComponent& stalemate_data, const int TURN)
+void EvalCheckAndMateSystem::initState(const InitGameState::Board& BOARD, const MovementData& SEL_MOVEMENT_DATA, const uint64_t VALID_PIECE_PLACEMENT, StalemateDataComponent& stalemate_data, const int TURN, EvalCheckAndMateComponent& check_data)
 {
-	int constexpr CORRECTION = 6;
-	int const ATTACKER_COLOR_OFFSET = SEL_MOVEMENT_DATA.attacker_color * CORRECTION;
-	int const DEFENDER_COLOR_OFFSET = SEL_MOVEMENT_DATA.defender_color * CORRECTION;
+	/*
+	 * PROCESSOR FUNCTION FOR OBTAINED STATE
+	*/
 
+	using enum pieceInfo::piece;
+
+	//setting obtained parameters
+	check_data.BOARD = BOARD;
+	check_data.SEL_MOVEMENT_DATA = SEL_MOVEMENT_DATA;
+	check_data.stalemate_data = stalemate_data;
+	check_data.VALID_PIECE_PLACEMENT = VALID_PIECE_PLACEMENT;
+	check_data.TURN = TURN;
+
+	//calculate intermediary values
+	int constexpr CORRECTION = 6;
+	check_data.ATTACKER_COLOR_OFFSET = SEL_MOVEMENT_DATA.attacker_color * CORRECTION;
+	check_data.DEFENDER_COLOR_OFFSET = SEL_MOVEMENT_DATA.defender_color * CORRECTION;
+
+	check_data.IS_KING = true;
+
+	check_data.ATK_PIECES[0] = pawn + check_data.ATTACKER_COLOR_OFFSET;
+	check_data.ATK_PIECES[1] = knight + check_data.ATTACKER_COLOR_OFFSET;
+	check_data.ATK_PIECES[2] = rook + check_data.ATTACKER_COLOR_OFFSET;
+	check_data.ATK_PIECES[3] = bishop + check_data.ATTACKER_COLOR_OFFSET;
+	check_data.ATK_PIECES[4] = queen + check_data.ATTACKER_COLOR_OFFSET;
+	check_data.ATK_PIECES[5] = king + check_data.ATTACKER_COLOR_OFFSET;
+
+	check_data.DEF_PIECES[0] = pawn + check_data.DEFENDER_COLOR_OFFSET;
+	check_data.DEF_PIECES[1] = knight + check_data.DEFENDER_COLOR_OFFSET;
+	check_data.DEF_PIECES[2] = rook + check_data.DEFENDER_COLOR_OFFSET;
+	check_data.DEF_PIECES[3] = bishop + check_data.DEFENDER_COLOR_OFFSET;
+	check_data.DEF_PIECES[4] = queen + check_data.DEFENDER_COLOR_OFFSET;
+	check_data.DEF_PIECES[5] = king + check_data.DEFENDER_COLOR_OFFSET;
+
+	check_data.new_movement_data = SEL_MOVEMENT_DATA;
+}
+
+int EvalCheckAndMateSystem::checkmateHandler(EvalCheckAndMateComponent& check_data)
+{
 	constexpr bool IS_KING = true;
 
-	const int IS_CHECK = isKingCheck(BOARD, SEL_MOVEMENT_DATA, VALID_PIECE_PLACEMENT, ATTACKER_COLOR_OFFSET, DEFENDER_COLOR_OFFSET, IS_KING);
+	const int IS_CHECK = isKingCheck(BOARD, SEL_MOVEMENT_DATA, VALID_PIECE_PLACEMENT, check_data.ATTACKER_COLOR_OFFSET, check_data.DEFENDER_COLOR_OFFSET, IS_KING);
 
 	constexpr int NO_CHECK = 0;
 	constexpr int CHECK_FOUND = 2;
@@ -35,14 +70,14 @@ int SpecialMoveValidationSystem::checkmateHandler(const InitGameState::Board& BO
 	return IS_CHECK;
 }
 
-void SpecialMoveValidationSystem::isPieceAtkHelper(const InitGameState::Board& new_board, MovementData& new_movement_data, bool& ATTACK_FOUND, const int PIECE, const int(&PIECES)[6], const int(&OPP_PIECES)[6])
+void EvalCheckAndMateSystem::isPieceAtkHelper(const InitGameState::Board& new_board, MovementData& new_movement_data, bool& ATTACK_FOUND, const int PIECE, const int(&PIECES)[6], const int(&OPP_PIECES)[6])
 {
 	new_movement_data.picked_piece_type = PIECES[PIECE];
 	uint64_t valid_moves = MoveValidationSystem::validator(new_board, new_movement_data);
 	ATTACK_FOUND |= ( (new_board.pieces[OPP_PIECES[PIECE]] & valid_moves) > 0);
 }
 
-bool SpecialMoveValidationSystem::findCheck(const InitGameState::Board& new_board, MovementData& new_movement_data, const int COLOR, const int OPP_COLOR, const int(&PIECES)[6], const int(&OPP_PIECES)[6], const bool IF_KING)
+bool EvalCheckAndMateSystem::findCheck(const InitGameState::Board& new_board, MovementData& new_movement_data, const int COLOR, const int OPP_COLOR, const int(&PIECES)[6], const int(&OPP_PIECES)[6], const bool IF_KING)
 {
 	using enum pieceInfo::piece;
 
@@ -70,7 +105,7 @@ bool SpecialMoveValidationSystem::findCheck(const InitGameState::Board& new_boar
 	return attack_found;
 }
 
-void SpecialMoveValidationSystem::findTargetIndex(const InitGameState::Board& new_board, MovementData& new_movement_data, const int(&PIECES)[6], const bool IF_KING)
+void EvalCheckAndMateSystem::findTargetIndex(const InitGameState::Board& new_board, MovementData& new_movement_data, const int(&PIECES)[6], const bool IF_KING)
 {
 	/*
 	* this function is responsible for ensuring that the picked_square_idx gets adjusted, given that
@@ -92,7 +127,7 @@ void SpecialMoveValidationSystem::findTargetIndex(const InitGameState::Board& ne
 	new_movement_data.picked_square_idx = (IF_KING_MASK & KING_IDX) | (~IF_KING_MASK & ATTACKING_PIECE_IDX);
 }
 
-void SpecialMoveValidationSystem::findOccupation(const InitGameState::Board& new_board, MovementData& new_movement_data, const int COLOR, const int OPP_COLOR, const bool IF_KING)
+void EvalCheckAndMateSystem::findOccupation(const InitGameState::Board& new_board, MovementData& new_movement_data, const int COLOR, const int OPP_COLOR, const bool IF_KING)
 {
 	const uint64_t IF_KING_MASK = -(IF_KING);
 
@@ -103,7 +138,7 @@ void SpecialMoveValidationSystem::findOccupation(const InitGameState::Board& new
 	new_movement_data.enemies = ENEMIES_OCCUPANCY;
 }
 
-int SpecialMoveValidationSystem::isKingCheck(const InitGameState::Board& BOARD, const MovementData& SEL_MOVEMENT_DATA, const uint64_t VALID_PIECE_PLACEMENT, const int ATTACKER_COLOR_OFFSET, const int DEFENDER_COLOR_OFFSET, const bool IF_KING)
+int EvalCheckAndMateSystem::isKingCheck(const InitGameState::Board& BOARD, const MovementData& SEL_MOVEMENT_DATA, const uint64_t VALID_PIECE_PLACEMENT, const int ATTACKER_COLOR_OFFSET, const int DEFENDER_COLOR_OFFSET, const bool IF_KING)
 {
 	//this function runs whenever a piece on the board is moved
 	//it determines whether an opposing piece is forcing a check
@@ -174,7 +209,7 @@ int SpecialMoveValidationSystem::isKingCheck(const InitGameState::Board& BOARD, 
 	return (int)(FINAL_RESULT);
 }
 
-bool SpecialMoveValidationSystem::isKingCheckmate(const InitGameState::Board& BOARD, const MovementData& SEL_MOVEMENT_DATA, const uint64_t VALID_PIECE_PLACEMENT, StalemateDataComponent& stalemate_data, const int ATTACKER_COLOR_OFFSET, const int DEFENDER_COLOR_OFFSET)
+bool EvalCheckAndMateSystem::isKingCheckmate(const InitGameState::Board& BOARD, const MovementData& SEL_MOVEMENT_DATA, const uint64_t VALID_PIECE_PLACEMENT, StalemateDataComponent& stalemate_data, const int ATTACKER_COLOR_OFFSET, const int DEFENDER_COLOR_OFFSET)
 {
 	/*
 	* checkmate is determined by moving the king to all available squares and reducing them retroactively
@@ -204,7 +239,7 @@ bool SpecialMoveValidationSystem::isKingCheckmate(const InitGameState::Board& BO
 	*check if any piece can move where this line is without incurring imposition checks
 	*do a loop for every square here in the same fashion as the lower while loop
 	*once the first valid blockade is found return 0 to denote that the checkmate is insolvent
-	* **imposed checks from the defender get reverted by ischeck imposition criteria. here all that matters is finding IF any blockade exists
+	* **imposed checks from the defender get reverted by is check imposition criteria. here all that matters is finding IF any blockade exists
 	* **I think I'll have to make additional adjustments for changing the attacking squares and making sure they're somehow occupied. what a pain
 	*/
 
@@ -224,7 +259,11 @@ bool SpecialMoveValidationSystem::isKingCheckmate(const InitGameState::Board& BO
 	//im curious to know, because this is an actual issue if it allows the king to be overtaken like that
 	//conversely I'm a bit concerned (though not as much) whether not including the king is an issue (I see how this problem doesn't have to be a problem)
 
-	const uint64_t attack_ray = 0; 
+	//OBTAIN THE RAY IMPOSED BY ATTACKING PIECES
+	//1. stip away pieces, keeping only the attacking piece and the defending king
+	findCheck(new_board, new_movement_data, SEL_MOVEMENT_DATA.attacker_color, SEL_MOVEMENT_DATA.defender_color, ATK_PIECES, DEF_PIECES, IF_KING);
+
+	const uint64_t attack_ray = MoveValidationSystem::universalRay();
 	while (attack_ray > 0)
 	{
 		isKingCheck(new_board, new_movement_data, NO_MOVES, DEFENDER_COLOR_OFFSET, ATTACKER_COLOR_OFFSET, NOT_KING);
@@ -233,7 +272,6 @@ bool SpecialMoveValidationSystem::isKingCheckmate(const InitGameState::Board& BO
 
 	switch (isKingCheck(new_board, new_movement_data, NO_MOVES, DEFENDER_COLOR_OFFSET, ATTACKER_COLOR_OFFSET, NOT_KING) ) {
 	case PIECE_EXPOSED:
-		
 		return NO_CHECKMATE;
 	}
 
@@ -242,10 +280,18 @@ bool SpecialMoveValidationSystem::isKingCheckmate(const InitGameState::Board& BO
 	new_movement_data.picked_piece_type = king + DEFENDER_COLOR_OFFSET;
 	new_movement_data.allies = new_board.occupancy[new_movement_data.defender_color];
 	new_movement_data.enemies = new_board.occupancy[new_movement_data.attacker_color];
+		
 	int64_t const KING_BOARD = (int64_t)new_board.pieces[king + DEFENDER_COLOR_OFFSET];
 	new_movement_data.picked_square_idx = std::countr_zero(static_cast<uint64_t>(KING_BOARD));
-
+	
+	//find potential valid king moves
 	uint64_t valid_moves = MoveValidationSystem::validator(new_board, new_movement_data);
+
+	/*
+	 * perform check calculations for each potential king movement,
+	 * to extrude viable legal moves, if any exist
+	 * otherwise pass a checkmate found flag
+	*/
 
 	uint64_t checkmate_found = 0;
 	constexpr int CHECK = 2;
@@ -273,6 +319,8 @@ bool SpecialMoveValidationSystem::isKingCheckmate(const InitGameState::Board& BO
 }
 
 //TODO
-//checkmate works, but it still doesn't account for whether overtaking the attacker neutralizes the checkmate.
-//
-//also account for en passant check!
+//fix checkmate validation. Right now it evaluates where the king can be moved
+//what's missing are:
+//checkmate neutralization via:
+//1. blocks
+//2. overtaking

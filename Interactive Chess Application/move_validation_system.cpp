@@ -4,7 +4,7 @@ uint64_t MoveValidationSystem::universalRay(const MovementData& movement_data, c
 {
 	using enum whichPlayerInfo::playerInfo;
 
-	const uint64_t SEL_RAY_HALF		= -(int64_t)(direction_bitfield & 0x01); //0 - lsb, 1 - msb
+	const uint64_t SEL_RAY_HALF		= -(int64_t)(direction_bitfield & 0x01);		//0 - lsb, 1 - msb
 	const uint64_t SEL_RAY_ROTATION = -(int64_t)((direction_bitfield >> 1) & 0x01); //0 - horizontal, 1 - vertical
 
 	//find the appropriate half ray
@@ -497,7 +497,7 @@ uint64_t MoveValidationSystem::kingValidation(const InitGameState::Board& board,
 
 		//append conditional mask to static array
 		ENEMY_KING_ADJACENT[i] = -( (KING_BUFFER_MASK & ENEMY_KING) > 0);
-	}
+	};
 
 	//possible moves, no enemy king in sight, no overtaking allies
 	uint64_t king_mask = 0;

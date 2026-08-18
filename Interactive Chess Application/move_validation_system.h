@@ -16,8 +16,8 @@
 class MoveValidationSystem {
 public:
 	static uint64_t validator(const InitGameState::Board&, MovementData&);
+	static uint64_t universalRay(const MovementData&, uint64_t, uint64_t); // used in checkmate and castling
 private:
-	static uint64_t universalRay(const MovementData&, uint64_t, uint64_t);
 	static uint64_t rayHalvingHelper(const MovementData&, uint64_t, uint64_t, uint64_t);
 	static uint64_t diagonalTransformation(const MovementData&, uint64_t);
 	static uint64_t nonDiagonalTransformation(const MovementData&, uint64_t, uint64_t);

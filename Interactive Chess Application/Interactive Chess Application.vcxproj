@@ -133,7 +133,7 @@
     <ClCompile Include="move_validation_system.cpp" />
     <ClCompile Include="player_input.cpp" />
     <ClCompile Include="positional_eval_system.cpp" />
-    <ClCompile Include="special_move_validation_system.cpp" />
+    <ClCompile Include="eval_check_and_mate_system.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="board_updating_system.h" />
@@ -153,8 +153,8 @@
     <ClInclude Include="positional_eval_component.h" />
     <ClInclude Include="positional_eval_system.h" />
     <ClInclude Include="ray_direction_info.h" />
-    <ClInclude Include="special_move_validation_component.h" />
-    <ClInclude Include="special_move_validation_system.h" />
+    <ClInclude Include="eval_check_and_mate_component.h" />
+    <ClInclude Include="eval_check_and_mate_system.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="findings.md">
