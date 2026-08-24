@@ -4,6 +4,7 @@
 #include "movement_data_component.h"
 #include "stalemate_data_component.h"
 #include "positional_eval_component.h"
+#include "trace_path_component.h"
 
 struct EvalCheckAndMateComponent {
 
@@ -13,9 +14,10 @@ struct EvalCheckAndMateComponent {
 	StalemateDataComponent* stalemate_data = nullptr;
 	uint64_t VALID_PIECE_PLACEMENT{};
 	int TURN{};
+	TracePathComponent* path_data{};
 	
 	//intermediary values
-	int IS_KING{};
+	//int IS_KING{};
 
 	int ATTACKER_COLOR_OFFSET{};
 	int DEFENDER_COLOR_OFFSET{};

@@ -140,6 +140,7 @@
     <ClInclude Include="display.h" />
     <ClInclude Include="king_move_indicies.h" />
     <ClInclude Include="stalemate_data_component.h" />
+    <ClInclude Include="trace_path_component.h" />
     <ClInclude Include="which_player_info.h" />
     <ClInclude Include="ray_transposition_info.h" />
     <ClInclude Include="move_info.h" />

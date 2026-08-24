@@ -12,21 +12,26 @@
 #include "piece_info.h"
 #include "which_player_info.h"
 #include "king_move_indicies.h"
+#include "trace_path_component.h"
 
 class MoveValidationSystem {
 public:
-	static uint64_t validator(const InitGameState::Board&, MovementData&);
-	static uint64_t universalRay(const MovementData&, uint64_t, uint64_t); // used in checkmate and castling
+	static uint64_t validator(const InitGameState::Board&, MovementData&, TracePathComponent&);
 private:
+	static uint64_t universalRay(const MovementData&, uint64_t, uint64_t);
 	static uint64_t rayHalvingHelper(const MovementData&, uint64_t, uint64_t, uint64_t);
 	static uint64_t diagonalTransformation(const MovementData&, uint64_t);
 	static uint64_t nonDiagonalTransformation(const MovementData&, uint64_t, uint64_t);
 	static uint64_t findBlockersHelper(const MovementData&, uint64_t, uint64_t, whichPlayerInfo::playerInfo);
 
-	static uint64_t pawnValidation(const InitGameState::Board&, MovementData&);
-	static uint64_t knightValidation(const InitGameState::Board&, MovementData&);
-	static uint64_t rookValidation(const InitGameState::Board&, MovementData&);
-	static uint64_t bishopValidation(const InitGameState::Board&, MovementData&);
-	static uint64_t queenValidation(const InitGameState::Board&, MovementData&);
-	static uint64_t kingValidation(const InitGameState::Board&, MovementData&);
+	static uint64_t pawnValidation(const InitGameState::Board&, MovementData&, TracePathComponent&);
+	static uint64_t knightValidation(const InitGameState::Board&, MovementData&, TracePathComponent&);
+	static uint64_t rookValidation(const InitGameState::Board&, MovementData&, TracePathComponent&);
+	static uint64_t bishopValidation(const InitGameState::Board&, MovementData&, TracePathComponent&);
+	static uint64_t queenValidation(const InitGameState::Board&, MovementData&, TracePathComponent&);
+	static uint64_t kingValidation(const InitGameState::Board&, MovementData&, TracePathComponent&);
+	
+	static inline uint64_t excludeKingOrigin(const InitGameState::Board&, uint64_t);
+	static inline uint64_t excludeKingOrigin(const InitGameState::Board&, uint64_t&, TracePathComponent&);
+	static uint64_t captureRayHelper(const InitGameState::Board&, MovementData&, const uint64_t, const uint64_t, TracePathComponent&);
 };

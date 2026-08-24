@@ -116,6 +116,9 @@
     <ClInclude Include="king_move_indicies.h">
       <Filter>Header Files\Namespaces</Filter>
     </ClInclude>
+    <ClInclude Include="trace_path_component.h">
+      <Filter>Header Files\MoveValidationComponents</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="findings.md">

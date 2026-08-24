@@ -212,7 +212,7 @@ uint64_t MoveValidationSystem::findBlockersHelper(const MovementData& movement_d
 	return HALF_MASK & DIRECTIONAL_RAY_MASK;
 }
 
-uint64_t MoveValidationSystem::pawnValidation(const InitGameState::Board& board, MovementData& movement_data)
+uint64_t MoveValidationSystem::pawnValidation(const InitGameState::Board& board, MovementData& movement_data, TracePathComponent& path_data)
 {
 	/*
 	* Pawns have their forward advancement movements validated first
@@ -334,11 +334,13 @@ uint64_t MoveValidationSystem::pawnValidation(const InitGameState::Board& board,
 	//flag that passant has been used for the upcoming board update
 	movement_data.passant_used = (EN_PASSANT_MASK > 0);
 
-	//update board state
+	//exclude kings and update board state
+	pawn_mask = excludeKingOrigin(board, pawn_mask);
+
 	return pawn_mask;
 }
 
-uint64_t MoveValidationSystem::knightValidation(const InitGameState::Board&, MovementData& movement_data)
+uint64_t MoveValidationSystem::knightValidation(const InitGameState::Board& board, MovementData& movement_data, TracePathComponent& path_data)
 {
 	uint64_t knight_mask = 0;
 
@@ -369,59 +371,118 @@ uint64_t MoveValidationSystem::knightValidation(const InitGameState::Board&, Mov
 	knight_mask |= (PICKED_BIT_MASK & NOT_B_MASK & NOT_A_MASK) << LEFT_UP   & ~movement_data.allies;
 	knight_mask |= (PICKED_BIT_MASK & NOT_A_MASK)			   << UP_LEFT   & ~movement_data.allies;
 
+	knight_mask = excludeKingOrigin(board, knight_mask);
+
 	return knight_mask;
 }
 
-uint64_t MoveValidationSystem::rookValidation(const InitGameState::Board&, MovementData& movement_data)
+inline uint64_t MoveValidationSystem::excludeKingOrigin(const InitGameState::Board& board, uint64_t attack)
+{
+	/*
+	* Used for excluding king origin for pawns and knights
+	*/
+
+	using enum pieceInfo::piece;
+
+	const uint64_t NO_KINGS_MASK = ~(board.pieces[white_king] | board.pieces[black_king]);
+	attack &= NO_KINGS_MASK;
+
+	return attack;
+}
+
+inline uint64_t MoveValidationSystem::excludeKingOrigin(const InitGameState::Board& board, uint64_t& ray, TracePathComponent& path_data)
+{
+	/*
+	* Used for excluding king origin for sliding pieces
+	* function returns both the ray which is used for finding valid moves for sliding pieces
+	* as well as defend_squares_mask, that returns exact squares which can be blocked by a defending piece
+	* for the purpose of evaluating check mate eligibility
+	*/
+
+	using enum pieceInfo::piece;
+
+	//remove the king origin from the MASK, so the king cannot ever be overtaken
+	const uint64_t NO_KINGS_MASK = ~(board.pieces[white_king] | board.pieces[black_king]);
+	ray &= NO_KINGS_MASK;
+	const uint64_t DEFEND_SQUARES_MASK = ray | path_data.attacker_origin;
+
+	return DEFEND_SQUARES_MASK;
+}
+
+uint64_t MoveValidationSystem::captureRayHelper(const InitGameState::Board& board, MovementData& movement_data, const uint64_t dir, const uint64_t transposition, TracePathComponent& path_data)
+{
+	/*
+	* when the objective is validating legal moves the function obtains those valid moves for a given ray.
+	* However when the validation function was sub-opted for the purpose of finding the ray between pieces,
+	* it does both. Granted the path_flag has to be enabled for that exact purpose within tracepath state
+	*/
+
+	uint64_t ray = universalRay(movement_data, dir, transposition);
+
+	//add current picked square for confirming which exact ray of a given slider is attacking the king
+	const uint64_t RAY_AND_ORIGIN = ray | (1ULL << movement_data.picked_square_idx);
+	const uint64_t IF_PATH_IDENTIFIED = -( (RAY_AND_ORIGIN & path_data.king_and_attacker) == path_data.king_and_attacker);
+	
+	//remove the king origin from the ray, so the king cannot ever be overtaken
+	const uint64_t DEFEND_SQUARES_MASK = excludeKingOrigin(board, ray, path_data);
+
+	//obtain the exact ray, threatening the king, and add it to state
+	path_data.attack_ray |= (IF_PATH_IDENTIFIED & path_data.IF_PATH_FLAG & DEFEND_SQUARES_MASK);
+
+	//return the ray for validation functions to execute
+	return ray;
+}
+
+uint64_t MoveValidationSystem::rookValidation(const InitGameState::Board& board, MovementData& movement_data, TracePathComponent& path_data)
 {
 	using enum rayTranspositionInfo::rays;
 	using enum rayDirectionInfo::rays;
 
 	uint64_t rook_mask = 0;
 
-	rook_mask |= universalRay(movement_data, north, vertical);	//north
-	rook_mask |= universalRay(movement_data, east, horizontal);	//east
-	rook_mask |= universalRay(movement_data, south, vertical);	//south
-	rook_mask |= universalRay(movement_data, west, horizontal);	//west
+	rook_mask |= captureRayHelper(board, movement_data, north, vertical,   path_data);	//north
+	rook_mask |= captureRayHelper(board, movement_data, east,  horizontal, path_data);	//east
+	rook_mask |= captureRayHelper(board, movement_data, south, vertical,   path_data);	//south
+	rook_mask |= captureRayHelper(board, movement_data, west,  horizontal, path_data);	//west
 
 	return rook_mask;
 }
 
-uint64_t MoveValidationSystem::bishopValidation(const InitGameState::Board&, MovementData& movement_data)
+uint64_t MoveValidationSystem::bishopValidation(const InitGameState::Board& board, MovementData& movement_data, TracePathComponent& path_data)
 {
 	using enum rayTranspositionInfo::rays;
 	using enum rayDirectionInfo::rays;
 
 	uint64_t bishop_mask = 0;
 
-	bishop_mask |= universalRay(movement_data, north_east, diagonal);		//north-east
-	bishop_mask |= universalRay(movement_data, south_east, anti_diagonal);	//south-east
-	bishop_mask |= universalRay(movement_data, south_west, diagonal);		//south-west
-	bishop_mask |= universalRay(movement_data, north_west, anti_diagonal);	//north-west
+	bishop_mask |= captureRayHelper(board, movement_data, north_east, diagonal,	     path_data);	//north-east
+	bishop_mask |= captureRayHelper(board, movement_data, south_east, anti_diagonal, path_data);	//south-east
+	bishop_mask |= captureRayHelper(board, movement_data, south_west, diagonal,		 path_data);	//south-west
+	bishop_mask |= captureRayHelper(board, movement_data, north_west, anti_diagonal, path_data);	//north-west
 
 	return bishop_mask;
 }
 
-uint64_t MoveValidationSystem::queenValidation(const InitGameState::Board&, MovementData& movement_data)
+uint64_t MoveValidationSystem::queenValidation(const InitGameState::Board& board, MovementData& movement_data, TracePathComponent& path_data)
 {
 	using enum rayTranspositionInfo::rays;
 	using enum rayDirectionInfo::rays;
 
 	uint64_t queen_mask = 0;
 
-	queen_mask |= universalRay(movement_data, north, vertical);				//north
-	queen_mask |= universalRay(movement_data, north_east, diagonal);		//north-east
-	queen_mask |= universalRay(movement_data, east, horizontal);			//east
-	queen_mask |= universalRay(movement_data, south_east, anti_diagonal);	//south-east
-	queen_mask |= universalRay(movement_data, south, vertical);				//south
-	queen_mask |= universalRay(movement_data, south_west, diagonal);		//south-west
-	queen_mask |= universalRay(movement_data, west, horizontal);			//west
-	queen_mask |= universalRay(movement_data, north_west, anti_diagonal);	//north-west
+	queen_mask |= captureRayHelper(board, movement_data, north,		 vertical,		path_data);	//north
+	queen_mask |= captureRayHelper(board, movement_data, north_east, diagonal,		path_data);	//north-east
+	queen_mask |= captureRayHelper(board, movement_data, east,		 horizontal,	path_data);	//east
+	queen_mask |= captureRayHelper(board, movement_data, south_east, anti_diagonal, path_data);	//south-east
+	queen_mask |= captureRayHelper(board, movement_data, south,		 vertical,		path_data);	//south
+	queen_mask |= captureRayHelper(board, movement_data, south_west, diagonal,		path_data);	//south-west
+	queen_mask |= captureRayHelper(board, movement_data, west,		 horizontal,	path_data);	//west
+	queen_mask |= captureRayHelper(board, movement_data, north_west, anti_diagonal, path_data);	//north-west
 
 	return queen_mask;
 }
 
-uint64_t MoveValidationSystem::kingValidation(const InitGameState::Board& board, MovementData& movement_data)
+uint64_t MoveValidationSystem::kingValidation(const InitGameState::Board& board, MovementData& movement_data, TracePathComponent& path_data)
 {
 	using enum pieceInfo::piece;
 	using enum kingMoveIndicies::move;
@@ -514,14 +575,14 @@ uint64_t MoveValidationSystem::kingValidation(const InitGameState::Board& board,
 	return king_mask;
 }
 
-uint64_t MoveValidationSystem::validator(const InitGameState::Board& board, MovementData& movement_data)
+uint64_t MoveValidationSystem::validator(const InitGameState::Board& board, MovementData& movement_data, TracePathComponent& path_data)
 {
 	//this is how you define the type of the jump table. it's defining the type of the function pointer
 	//uint64_t specifies the return value (can be empty if void), (*) is the placeholder of the function pointer
 	//(here it's only * because the access system is being handled via the "using" keyword),
 	//and the second parentheses contains function parameters, that have to be uniform for the jump table to work
 	//for the sake of determinism
-	using a_validator = uint64_t(*)(const InitGameState::Board&, MovementData&);
+	using a_validator = uint64_t(*)(const InitGameState::Board&, MovementData&, TracePathComponent&);
 
 	//array of function pointers
 	//static keyword in front of a data type enforces this table belongs only to this source file
@@ -546,7 +607,7 @@ uint64_t MoveValidationSystem::validator(const InitGameState::Board& board, Move
 		//accesses the function pointer via index, then execute it with the provided arguments
 		//modulo six accounts for figure color correction, as their legal moves don't differ based on color
 		///however I'm counting them separately as this fulfills another architectural purpose
-		valid_moves = jump_table[movement_data.picked_piece_type % COLOR_CORRECTION](board, movement_data);
+		valid_moves = jump_table[movement_data.picked_piece_type % COLOR_CORRECTION](board, movement_data, path_data);
 	}
 
 	return valid_moves;

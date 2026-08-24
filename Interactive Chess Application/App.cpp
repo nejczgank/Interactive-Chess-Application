@@ -12,6 +12,7 @@
 #include "eval_check_and_mate_component.h"
 #include "eval_check_and_mate_system.h"
 #include "stalemate_data_component.h"
+#include "trace_path_component.h"
 
 int main() {
 
@@ -28,10 +29,13 @@ int main() {
 	//Create state for an AI instance
 	PositionalEvalComponent pos_eval;
 
+	//Create state for path tracing
+	TracePathComponent path_data{};
+
 	//bool is_king_check = SpecialMoveValidationSystem::isKingCheck(board, 0);
 
 	//Initialize stalemate data
-	StalemateDataComponent stalemate_data;
+	StalemateDataComponent stalemate_data{};
 
 	//Initialize player turn state
 	bool white_turn = 1;
@@ -63,7 +67,7 @@ int main() {
 		GetMovementInfoSystem::pickingInfo(board, movement_data);
 
 		//Validate legal moves for the picked piece
-		const uint64_t VALID_MOVES = MoveValidationSystem::validator(board, movement_data);
+		const uint64_t VALID_MOVES = MoveValidationSystem::validator(board, movement_data, path_data);
 
 		//Look if there are any legal moves, to enforce correctness
 		const uint64_t VALID_PIECE_PLACEMENT = BoardUpdatingSystem::movementValidation(movement_data, VALID_MOVES);
@@ -81,7 +85,7 @@ int main() {
 		//GetMovementInfoSystem::updatePreviousPawnState(board, movement_data);
 
 		EvalCheckAndMateComponent check_data;
-		EvalCheckAndMateSystem::initState(board, movement_data, VALID_PIECE_PLACEMENT, stalemate_data, TURN, check_data);
+		EvalCheckAndMateSystem::initState(board, movement_data, VALID_PIECE_PLACEMENT, stalemate_data, TURN, check_data, path_data);
 		const int check = EvalCheckAndMateSystem::checkmateHandler(check_data, stalemate_data);
 
 		//Update the board with new values
