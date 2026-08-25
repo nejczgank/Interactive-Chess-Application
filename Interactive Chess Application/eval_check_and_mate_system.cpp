@@ -42,11 +42,27 @@ void EvalCheckAndMateSystem::initState(InitGameState::Board& BOARD, MovementData
 	check_data.new_pos_eval;
 }
 
-int EvalCheckAndMateSystem::checkmateHandler(EvalCheckAndMateComponent& check_data, StalemateDataComponent& stalemate_data)
+int EvalCheckAndMateSystem::checkmateHandler(InitGameState::Board& board, MovementData& movement_data, PositionalEvalComponent& pos_eval, const uint64_t VALID_PIECE_PLACEMENT, EvalCheckAndMateComponent& check_data, StalemateDataComponent& stalemate_data)
 {
-	constexpr bool IS_KING = true;
+	//create a frame of current game state which is used to
+	//simulate board movements for the purpose of determining check or checkmate
+	//persistent throughout check and checkmate functions
+	CheckSimFrameComponent check_sim_frame;
+	setCheckSimFrame(board, movement_data, pos_eval, check_sim_frame);
 
-	const int IS_CHECK = isKingCheck(check_data, IS_KING);
+	//enact movement on this simulated state so it can be utilized for further processing
+	//by both check and checkmate
+	BoardUpdatingSystem::updateBoards(
+		check_sim_frame.new_board,
+		check_sim_frame.new_movement_data,
+		check_sim_frame.new_pos_eval,
+		VALID_PIECE_PLACEMENT
+	);
+
+	TracePathComponent path_data;
+
+	constexpr bool IS_KING = true;
+	const int IS_CHECK = isKingCheck(check_sim_frame, path_data, check_data, IS_KING);
 
 	constexpr int NO_CHECK = 0;
 	constexpr int CHECK_FOUND = 2;
@@ -64,7 +80,6 @@ int EvalCheckAndMateSystem::checkmateHandler(EvalCheckAndMateComponent& check_da
 	{
 	case NO_CHECK:
 		stalemate_data.stalemate_check = isKingCheckmate(check_data, stalemate_data);
-		//stalemate_data.stalemate_check = isKingCheckmate();
 		return NO_CHECK;
 	case CHECK_FOUND:
 		const int CHECKMATE_FOUND = CHECKMATE_CONST * isKingCheckmate(check_data, stalemate_data);
@@ -74,23 +89,106 @@ int EvalCheckAndMateSystem::checkmateHandler(EvalCheckAndMateComponent& check_da
 	return IS_CHECK;
 }
 
-void EvalCheckAndMateSystem::isPieceAtkHelper(EvalCheckAndMateComponent& check_data, bool& attack_found, const int PIECE, const int(&PIECES)[6], const int(&OPP_PIECES)[6])
+void EvalCheckAndMateSystem::setCheckSimFrame(InitGameState::Board& board, MovementData& movement_data, PositionalEvalComponent& pos_eval, CheckSimFrameComponent& check_sim_frame)
 {
-	auto& new_board = check_data.new_board;
-	auto& new_movement_data = check_data.new_movement_data;
-	auto& path_data = *check_data.path_data;
+	InitGameState::Board new_board;
+	MovementData new_movement_data;
+	PositionalEvalComponent new_pos_eval;
 
-	new_movement_data.picked_piece_type = PIECES[PIECE];
-	uint64_t valid_moves = MoveValidationSystem::validator(new_board, new_movement_data, path_data);
-	attack_found |= ( (new_board.pieces[OPP_PIECES[PIECE]] & valid_moves) > 0);
+	check_sim_frame.new_board = board;
+	check_sim_frame.new_movement_data = movement_data;
+	check_sim_frame.new_pos_eval = pos_eval;
 }
 
-bool EvalCheckAndMateSystem::findCheck(EvalCheckAndMateComponent& check_data, const int COLOR, const int OPP_COLOR, const int(&ALLY_PIECES)[6], const int(&OPP_PIECES)[6], bool IS_KING)
+int EvalCheckAndMateSystem::isKingCheck(CheckSimFrameComponent& check_sim_frame, TracePathComponent& path_data, EvalCheckAndMateComponent& check_data, bool IS_KING)
+{
+	//this function runs whenever a piece on the board is moved
+	//it determines whether an opposing piece is forcing a check
+	//the way it works is by casting rays from the position of the king piece,
+	//and checking if the encountered pieces matches a corresponding enemy piece.
+	//It calculates both discovered checks and imposed checks
+
+	using enum occupancyInfo::occupancy;
+	using enum pieceInfo::piece;
+
+	auto& new_board = check_data.new_board;
+	auto& new_movement_data = check_data.new_movement_data;
+	auto& new_pos_eval = check_data.new_pos_eval;
+	auto& VALID_PIECE_PLACEMENT = check_data.VALID_PIECE_PLACEMENT;
+	auto& ATTACKER_COLOR = (*check_data.SEL_MOVEMENT_DATA).attacker_color;
+	auto& DEFENDER_COLOR = (*check_data.SEL_MOVEMENT_DATA).defender_color;
+	auto& ATK_PIECES = check_data.ATK_PIECES;
+	auto& DEF_PIECES = check_data.DEF_PIECES;
+
+	//THIS CODE SHOULDN'T BE HERE
+	//enact piece movement
+	/*BoardUpdatingSystem::updateBoards(
+		new_board,
+		new_movement_data,
+		new_pos_eval,
+		VALID_PIECE_PLACEMENT
+	);*/
+
+	//FIND POSSIBLE DISCOVERED CHECK
+	const uint64_t DISCOVERED_CHECK = -(
+		findCheck(
+			check_sim_frame,
+			path_data,
+			check_data,
+			ATTACKER_COLOR,
+			DEFENDER_COLOR,
+			ATK_PIECES,
+			DEF_PIECES,
+			IS_KING
+		)
+	);
+
+	//FIND POSSIBLE CHECK IMPOSED BY THE ATTACKER
+	const uint64_t IMPOSED_CHECK = -(
+		findCheck(
+			check_sim_frame,
+			path_data,
+			check_data,
+			DEFENDER_COLOR,
+			ATTACKER_COLOR,
+			DEF_PIECES,
+			ATK_PIECES,
+			IS_KING
+		)
+	);
+
+	//reset structs with new prefix
+	check_data.new_board = *check_data.BOARD;
+	check_data.new_movement_data = *check_data.SEL_MOVEMENT_DATA;
+
+	//calculate result
+	/*
+	* 0 - no check
+	* 1 - discovered check
+	* 2 - imposed check
+	*/
+
+	const     uint64_t ANY_CHECK = DISCOVERED_CHECK | IMPOSED_CHECK;
+	constexpr uint64_t DISCOVERED_CHECK_MASK = 1;
+	constexpr uint64_t IMPOSED_CHECK_MASK = 2;
+
+	const uint64_t FINAL_RESULT =
+		ANY_CHECK & DISCOVERED_CHECK & ~IMPOSED_CHECK & DISCOVERED_CHECK_MASK |
+		ANY_CHECK & ~DISCOVERED_CHECK & IMPOSED_CHECK & IMPOSED_CHECK_MASK |
+		ANY_CHECK & DISCOVERED_CHECK & IMPOSED_CHECK & DISCOVERED_CHECK_MASK
+		;
+
+	return (int)(FINAL_RESULT);
+}
+
+bool EvalCheckAndMateSystem::findCheck(const CheckSimFrameComponent& check_sim_frame, TracePathComponent& path_data, EvalCheckAndMateComponent& check_data, const int COLOR, const int OPP_COLOR, const int(&ALLY_PIECES)[6], const int(&OPP_PIECES)[6], bool IS_KING)
 {
 	using enum pieceInfo::piece;
 
-	//dynamically determines the target index, whether it's a king or an attacking piece
-	findOccupation(
+	FoundOccupation found_occupation;
+
+	//determines the target index, whether it's a king or an attacking piece
+	found_occupation = findOccupation(
 		check_data,
 		COLOR, 
 		OPP_COLOR,
@@ -98,24 +196,47 @@ bool EvalCheckAndMateSystem::findCheck(EvalCheckAndMateComponent& check_data, co
 	);
 	
 	//does the same but for allies and enemies
-	findTargetIndex(
+	const int PICKED_SQUARE_IDX = findTargetIndex(
 		check_data,
 		ALLY_PIECES,
 		IS_KING
 	);
 
+	//here is the transient state. only reads the simulated data for movement and adjusts it in this local struct
+	//now I just gotta fix isPieceAtkHelper so that it passes this locally created struct to the validation function it contains
+	MovementData probe_sim_movement = check_sim_frame.new_movement_data;
+	probe_sim_movement.allies = found_occupation.allies;
+	probe_sim_movement.enemies = found_occupation.enemies;
+	probe_sim_movement.picked_square_idx = PICKED_SQUARE_IDX;
+
 	bool attack_found = false;
 
-	isPieceAtkHelper(check_data, attack_found, pawn,   ALLY_PIECES, OPP_PIECES);
-	isPieceAtkHelper(check_data, attack_found, knight, ALLY_PIECES, OPP_PIECES);
-	isPieceAtkHelper(check_data, attack_found, rook,   ALLY_PIECES, OPP_PIECES);
-	isPieceAtkHelper(check_data, attack_found, bishop, ALLY_PIECES, OPP_PIECES);
-	isPieceAtkHelper(check_data, attack_found, queen,  ALLY_PIECES, OPP_PIECES);
+	isPieceAtkHelper(probe_sim_movement, check_sim_frame, path_data, check_data, attack_found, pawn,   ALLY_PIECES, OPP_PIECES);
+	isPieceAtkHelper(probe_sim_movement, check_sim_frame, path_data, check_data, attack_found, knight, ALLY_PIECES, OPP_PIECES);
+	isPieceAtkHelper(probe_sim_movement, check_sim_frame, path_data, check_data, attack_found, rook,   ALLY_PIECES, OPP_PIECES);
+	isPieceAtkHelper(probe_sim_movement, check_sim_frame, path_data, check_data, attack_found, bishop, ALLY_PIECES, OPP_PIECES);
+	isPieceAtkHelper(probe_sim_movement, check_sim_frame, path_data, check_data, attack_found, queen,  ALLY_PIECES, OPP_PIECES);
 
 	return attack_found;
 }
 
-void EvalCheckAndMateSystem::findTargetIndex(EvalCheckAndMateComponent& check_data, const int(&PIECES)[6], bool IS_KING)
+EvalCheckAndMateSystem::FoundOccupation EvalCheckAndMateSystem::findOccupation(EvalCheckAndMateComponent& check_data, const int COLOR, const int OPP_COLOR, bool IS_KING)
+{
+	auto& NEW_BOARD = check_data.new_board;
+	auto& NEW_MOVEMENT_DATA = check_data.new_movement_data;
+
+	const uint64_t IF_KING_MASK = -(IS_KING);
+
+	const uint64_t ALLIES_OCCUPANCY  = (IF_KING_MASK & NEW_BOARD.occupancy[COLOR])	   | (~IF_KING_MASK & NEW_BOARD.occupancy[OPP_COLOR]);
+	const uint64_t ENEMIES_OCCUPANCY = (IF_KING_MASK & NEW_BOARD.occupancy[OPP_COLOR]) | (~IF_KING_MASK & NEW_BOARD.occupancy[COLOR]);
+
+	/*NEW_MOVEMENT_DATA.allies = ALLIES_OCCUPANCY;
+	NEW_MOVEMENT_DATA.enemies = ENEMIES_OCCUPANCY;*/
+
+	return { ALLIES_OCCUPANCY, ENEMIES_OCCUPANCY };
+}
+
+int EvalCheckAndMateSystem::findTargetIndex(EvalCheckAndMateComponent& check_data, const int(&PIECES)[6], bool IS_KING)
 {
 	/*
 	* this function is responsible for ensuring that the picked_square_idx gets adjusted, given that
@@ -137,97 +258,133 @@ void EvalCheckAndMateSystem::findTargetIndex(EvalCheckAndMateComponent& check_da
 
 	uint64_t const ATTACKING_PIECE_IDX = new_movement_data.placement_square_idx;
 
-	new_movement_data.picked_square_idx = (IF_KING_MASK & KING_IDX) | (~IF_KING_MASK & ATTACKING_PIECE_IDX);
+	//new_movement_data.picked_square_idx = (IF_KING_MASK & KING_IDX) | (~IF_KING_MASK & ATTACKING_PIECE_IDX);
+	const int PICKED_SQUARE_IDX = (IF_KING_MASK & KING_IDX) | (~IF_KING_MASK & ATTACKING_PIECE_IDX);
+
+	return PICKED_SQUARE_IDX;
 }
 
-void EvalCheckAndMateSystem::findOccupation(EvalCheckAndMateComponent& check_data, const int COLOR, const int OPP_COLOR, bool IS_KING)
+void EvalCheckAndMateSystem::isPieceAtkHelper(MovementData& probe_sim_movement, const CheckSimFrameComponent& check_sim_frame, TracePathComponent& path_data, EvalCheckAndMateComponent& check_data, bool& attack_found, const int PIECE, const int(&PIECES)[6], const int(&OPP_PIECES)[6])
 {
-	auto& NEW_BOARD = check_data.new_board;
-	auto& NEW_MOVEMENT_DATA = check_data.new_movement_data;
+	/*auto& new_board = check_data.new_board;
+	auto& new_movement_data = check_data.new_movement_data;
+	auto& path_data = *check_data.path_data;
 
-	const uint64_t IF_KING_MASK = -(IS_KING);
+	new_movement_data.picked_piece_type = PIECES[PIECE];
+	uint64_t valid_moves = MoveValidationSystem::validator(new_board, new_movement_data, path_data);
+	attack_found |= ( (new_board.pieces[OPP_PIECES[PIECE]] & valid_moves) > 0);*/
 
-	const uint64_t ALLIES_OCCUPANCY  = (IF_KING_MASK & NEW_BOARD.occupancy[COLOR])     | (~IF_KING_MASK & NEW_BOARD.occupancy[OPP_COLOR]);
-	const uint64_t ENEMIES_OCCUPANCY = (IF_KING_MASK & NEW_BOARD.occupancy[OPP_COLOR]) | (~IF_KING_MASK & NEW_BOARD.occupancy[COLOR]);
+	auto& new_board = check_sim_frame.new_board;
 
-	NEW_MOVEMENT_DATA.allies  = ALLIES_OCCUPANCY;
-	NEW_MOVEMENT_DATA.enemies = ENEMIES_OCCUPANCY;
+	probe_sim_movement.picked_piece_type = PIECES[PIECE];											  //set the exact piece type of the attacker
+	uint64_t valid_moves = MoveValidationSystem::validator(new_board, probe_sim_movement, path_data); //find where the attacker can move
+	attack_found |= ( (new_board.pieces[ OPP_PIECES[PIECE] ] & valid_moves) > 0);					  //find if it's movement profile intersects with the piece we're inspecting
 }
 
-int EvalCheckAndMateSystem::isKingCheck(EvalCheckAndMateComponent& check_data, bool IS_KING)
+bool EvalCheckAndMateSystem::isKingCheckmate(EvalCheckAndMateComponent& check_data, StalemateDataComponent& stalemate_data)
 {
-	//this function runs whenever a piece on the board is moved
-	//it determines whether an opposing piece is forcing a check
-	//the way it works is by casting rays from the position of the king piece,
-	//and checking if the encountered pieces matches a corresponding enemy piece.
-	//It calculates both discovered checks and imposed checks
+	/*
+	* checkmate is determined by moving the king to all available squares and reducing them retroactively
+	* by invoking the isKingCheck function for all of them if the king there is under attack
+	*/
 
-	using enum occupancyInfo::occupancy;
 	using enum pieceInfo::piece;
+	using enum occupancyInfo::occupancy;
 
 	auto& new_board = check_data.new_board;
 	auto& new_movement_data = check_data.new_movement_data;
 	auto& new_pos_eval = check_data.new_pos_eval;
 	auto& VALID_PIECE_PLACEMENT = check_data.VALID_PIECE_PLACEMENT;
-	auto& ATTACKER_COLOR = (*check_data.SEL_MOVEMENT_DATA).attacker_color;
-	auto& DEFENDER_COLOR = (*check_data.SEL_MOVEMENT_DATA).defender_color;
-	auto& ATK_PIECES = check_data.ATK_PIECES;
-	auto& DEF_PIECES = check_data.DEF_PIECES;
+	auto& ATTACKER_COLOR_OFFSET = check_data.ATTACKER_COLOR_OFFSET;
+	auto& DEFENDER_COLOR_OFFSET = check_data.DEFENDER_COLOR_OFFSET;
+	auto& path_data = *check_data.path_data;
 
-	//enact piece movement
-	BoardUpdatingSystem::updateBoards(
-		new_board, 
-		new_movement_data, 
-		new_pos_eval, 
-		VALID_PIECE_PLACEMENT
-	);
+	//update for the piece that just moved
+	BoardUpdatingSystem::updateBoards(new_board, new_movement_data, new_pos_eval, VALID_PIECE_PLACEMENT);
 
-	//FIND POSSIBLE DISCOVERED CHECK
-	const uint64_t DISCOVERED_CHECK = -(
-		findCheck(
-			check_data,
-			ATTACKER_COLOR,
-			DEFENDER_COLOR, 
-			ATK_PIECES,
-			DEF_PIECES,
-			IS_KING
-		) 
-	);
+	//first check whether the piece imposing the check can be overtaken
+	constexpr int PIECE_EXPOSED = 2;
+	constexpr int NO_CHECKMATE = 0;
+	constexpr int NO_MOVES = 0; //the board has already been updated, and doesn't need to be updated again in isKingCheck
+	//constexpr int IS_KING = false;
 
-	//FIND POSSIBLE CHECK IMPOSED BY THE ATTACKER
-	const uint64_t IMPOSED_CHECK = -(
-		findCheck(
-			check_data,
-			DEFENDER_COLOR,
-			ATTACKER_COLOR,
-			DEF_PIECES,
-			ATK_PIECES,
-			IS_KING
-		)
-	);
+	//OBTAIN THE RAY IMPOSED BY ATTACKING PIECES
+	uint64_t isolated_atk_ray = findAttackPathHelper(check_data);
+	
+	//FILL ATTACK RAY SQUARES WITH ARTIFICIAL PIECES
 
-	//reset structs with new prefix
-	check_data.new_board = *check_data.BOARD;
-	check_data.new_movement_data = *check_data.SEL_MOVEMENT_DATA;
 
-	//calculate result
+	constexpr bool NO_KING = false;
+	constexpr int CHECK = 2;
+	int block_available = 0;
+
+	//while (isolated_atk_ray > 0)
+	//{
+	//	//Isolate the least significant square
+	//	uint64_t validate_blocked_square = isolated_atk_ray & (0ULL - isolated_atk_ray);
+	//	
+	//	//Remove the least significant square for subsequent iterations
+	//	isolated_atk_ray &= ~validate_blocked_square;
+
+	//	//update state
+	//	new_movement_data.picked_square_idx = std::countr_zero(validate_blocked_square);
+
+	//	int check_case = isKingCheck(check_data, NO_KING);
+	//	bool not_check = (check_case != CHECK); //check how this functions for when squares are empty
+
+	//	block_available|= -(not_check);
+	//	/*isKingCheck(new_board, new_movement_data, NO_MOVES, DEFENDER_COLOR_OFFSET, ATTACKER_COLOR_OFFSET, NOT_KING);
+	//	retract pieces and update blocker exists*/
+	//}
+
+	//THIS IS STILL USEFUL I THINK, FOR 
+	/*switch (isKingCheck(new_board, new_movement_data, NO_MOVES, DEFENDER_COLOR_OFFSET, ATTACKER_COLOR_OFFSET, NOT_KING) ) {
+	case PIECE_EXPOSED:
+		return NO_CHECKMATE;
+	}*/
+
+	//set the picked piece to the enemy king, to find the moves available to the king
+	//and other relevant data
+	new_movement_data.picked_piece_type = king + DEFENDER_COLOR_OFFSET;
+	new_movement_data.allies = new_board.occupancy[new_movement_data.defender_color];
+	new_movement_data.enemies = new_board.occupancy[new_movement_data.attacker_color];
+		
+	int64_t const KING_BOARD = (int64_t)new_board.pieces[king + DEFENDER_COLOR_OFFSET];
+	new_movement_data.picked_square_idx = std::countr_zero(static_cast<uint64_t>(KING_BOARD));
+	
+	//find potential valid king moves
+	uint64_t valid_moves = MoveValidationSystem::validator(new_board, new_movement_data, path_data);
+
 	/*
-	* 0 - no check
-	* 1 - discovered check
-	* 2 - imposed check
+	 * perform check calculations for each potential king movement,
+	 * to extrude viable legal moves, if any exist
+	 * otherwise pass a checkmate found flag
 	*/
 
-	const     uint64_t ANY_CHECK			 = DISCOVERED_CHECK | IMPOSED_CHECK;
-	constexpr uint64_t DISCOVERED_CHECK_MASK = 1;
-	constexpr uint64_t IMPOSED_CHECK_MASK	 = 2;
+	uint64_t checkmate_found = 0;
+	//constexpr int CHECK = 2;
+	constexpr int IS_KING = true;
+	
+	//while(valid_moves > 0)
+	//{
+	//	//Isolate and remove the least significant king position
+	//	uint64_t validate_check_pos = valid_moves & (0ULL - valid_moves);
+	//
+	//	uint64_t push_once = validate_check_pos << 1;
+	//	uint64_t tail = push_once - 1;
+	//	uint64_t invert = ~tail;
+	//	valid_moves &= invert;
 
-	const uint64_t FINAL_RESULT =
-		ANY_CHECK &  DISCOVERED_CHECK & ~IMPOSED_CHECK & DISCOVERED_CHECK_MASK |
-		ANY_CHECK & ~DISCOVERED_CHECK &  IMPOSED_CHECK & IMPOSED_CHECK_MASK	   |
-		ANY_CHECK &  DISCOVERED_CHECK &  IMPOSED_CHECK & DISCOVERED_CHECK_MASK
-	;
+	//	//valid_check_pos or-ed with allies, for some reason
+	//	//int check_case = isKingCheck(new_board, new_movement_data, validate_check_pos, ATTACKER_COLOR_OFFSET, DEFENDER_COLOR_OFFSET, IS_KING);
+	//	int check_case = isKingCheck(check_data, IS_KING);
+	//	bool not_check = (check_case != CHECK);
 
-	return (int)(FINAL_RESULT);
+	//	checkmate_found |= -(not_check);
+	//}
+	
+	return (checkmate_found == 0);
+	//combine both blocks and checkmate found, or just preemptively exit at blockers. whatever is more efficient
 }
 
 uint64_t EvalCheckAndMateSystem::findAttackPathHelper(EvalCheckAndMateComponent& check_data)
@@ -278,7 +435,7 @@ uint64_t EvalCheckAndMateSystem::findAttackPathHelper(EvalCheckAndMateComponent&
 	//execute and only obtain the exact ray, stored in path_data state
 	MoveValidationSystem::validator(simulated_board, new_movement_data, path_data);
 	const uint64_t ISOLATED_ATK_RAY = path_data.attack_ray;
-	
+
 	//reset state for the next iteration
 	path_data.IF_PATH_FLAG = 0;
 	path_data.attacker_origin = 0;
@@ -292,112 +449,6 @@ uint64_t EvalCheckAndMateSystem::findAttackPathHelper(EvalCheckAndMateComponent&
 	new_movement_data.enemies = 0;
 
 	return ISOLATED_ATK_RAY;
-}
-
-bool EvalCheckAndMateSystem::isKingCheckmate(EvalCheckAndMateComponent& check_data, StalemateDataComponent& stalemate_data)
-{
-	/*
-	* checkmate is determined by moving the king to all available squares and reducing them retroactively
-	* by invoking the isKingCheck function for all of them if the king there is under attack
-	*/
-
-	using enum pieceInfo::piece;
-	using enum occupancyInfo::occupancy;
-
-	auto& new_board = check_data.new_board;
-	auto& new_movement_data = check_data.new_movement_data;
-	auto& new_pos_eval = check_data.new_pos_eval;
-	auto& VALID_PIECE_PLACEMENT = check_data.VALID_PIECE_PLACEMENT;
-	auto& ATTACKER_COLOR_OFFSET = check_data.ATTACKER_COLOR_OFFSET;
-	auto& DEFENDER_COLOR_OFFSET = check_data.DEFENDER_COLOR_OFFSET;
-	auto& path_data = *check_data.path_data;
-
-	//update for the piece that just moved
-	BoardUpdatingSystem::updateBoards(new_board, new_movement_data, new_pos_eval, VALID_PIECE_PLACEMENT);
-
-	//first check whether the piece imposing the check can be overtaken
-	constexpr int PIECE_EXPOSED = 2;
-	constexpr int NO_CHECKMATE = 0;
-	constexpr int NO_MOVES = 0; //the board has already been updated, and doesn't need to be updated again in isKingCheck
-	//constexpr int IS_KING = false;
-
-	//OBTAIN THE RAY IMPOSED BY ATTACKING PIECES
-	uint64_t isolated_atk_ray = findAttackPathHelper(check_data);
-	
-	//FILL ATTACK RAY SQUARES WITH ARTIFICIAL PIECES
-
-
-	constexpr bool NO_KING = false;
-	constexpr int CHECK = 2;
-	int block_available = 0;
-
-	while (isolated_atk_ray > 0)
-	{
-		//Isolate the least significant square
-		uint64_t validate_blocked_square = isolated_atk_ray & (0ULL - isolated_atk_ray);
-		
-		//Remove the least significant square for subsequent iterations
-		isolated_atk_ray &= ~validate_blocked_square;
-
-		//update state
-		new_movement_data.picked_square_idx = std::countr_zero(validate_blocked_square);
-
-		int check_case = isKingCheck(check_data, NO_KING);
-		bool not_check = (check_case != CHECK); //check how this functions for when squares are empty
-
-		block_available|= -(not_check);
-		/*isKingCheck(new_board, new_movement_data, NO_MOVES, DEFENDER_COLOR_OFFSET, ATTACKER_COLOR_OFFSET, NOT_KING);
-		retract pieces and update blocker exists*/
-	}
-
-	//THIS IS STILL USEFUL I THINK, FOR 
-	/*switch (isKingCheck(new_board, new_movement_data, NO_MOVES, DEFENDER_COLOR_OFFSET, ATTACKER_COLOR_OFFSET, NOT_KING) ) {
-	case PIECE_EXPOSED:
-		return NO_CHECKMATE;
-	}*/
-
-	//set the picked piece to the enemy king, to find the moves available to the king
-	//and other relevant data
-	new_movement_data.picked_piece_type = king + DEFENDER_COLOR_OFFSET;
-	new_movement_data.allies = new_board.occupancy[new_movement_data.defender_color];
-	new_movement_data.enemies = new_board.occupancy[new_movement_data.attacker_color];
-		
-	int64_t const KING_BOARD = (int64_t)new_board.pieces[king + DEFENDER_COLOR_OFFSET];
-	new_movement_data.picked_square_idx = std::countr_zero(static_cast<uint64_t>(KING_BOARD));
-	
-	//find potential valid king moves
-	uint64_t valid_moves = MoveValidationSystem::validator(new_board, new_movement_data, path_data);
-
-	/*
-	 * perform check calculations for each potential king movement,
-	 * to extrude viable legal moves, if any exist
-	 * otherwise pass a checkmate found flag
-	*/
-
-	uint64_t checkmate_found = 0;
-	//constexpr int CHECK = 2;
-	constexpr int IS_KING = true;
-	
-	while(valid_moves > 0)
-	{
-		//Isolate and remove the least significant king position
-		uint64_t validate_check_pos = valid_moves & (0ULL - valid_moves);
-	
-		uint64_t push_once = validate_check_pos << 1;
-		uint64_t tail = push_once - 1;
-		uint64_t invert = ~tail;
-		valid_moves &= invert;
-
-		//valid_check_pos or-ed with allies, for some reason
-		//int check_case = isKingCheck(new_board, new_movement_data, validate_check_pos, ATTACKER_COLOR_OFFSET, DEFENDER_COLOR_OFFSET, IS_KING);
-		int check_case = isKingCheck(check_data, IS_KING);
-		bool not_check = (check_case != CHECK);
-
-		checkmate_found |= -(not_check);
-	}
-	
-	return (checkmate_found == 0);
-	//combine both blocks and checkmate found, or just preemptively exit at blockers. whatever is more efficient
 }
 
 //TODO

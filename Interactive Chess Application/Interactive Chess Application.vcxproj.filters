@@ -119,6 +119,9 @@
     <ClInclude Include="trace_path_component.h">
       <Filter>Header Files\MoveValidationComponents</Filter>
     </ClInclude>
+    <ClInclude Include="check_sim_frame_component.h">
+      <Filter>Header Files\MoveValidationComponents</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="findings.md">
