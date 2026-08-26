@@ -9,23 +9,24 @@
 struct EvalCheckAndMateComponent {
 
 	//obtained parameters
-	const InitGameState::Board* BOARD = nullptr;
-	MovementData* SEL_MOVEMENT_DATA = nullptr;
-	StalemateDataComponent* stalemate_data = nullptr;
-	uint64_t VALID_PIECE_PLACEMENT{};
-	int TURN{};
-	TracePathComponent* path_data{};
-	
-	//intermediary values
-	//int IS_KING{};
+	//const InitGameState::Board* BOARD = nullptr;
+	//MovementData* SEL_MOVEMENT_DATA = nullptr;
+	//StalemateDataComponent* stalemate_data = nullptr;
+	//uint64_t VALID_PIECE_PLACEMENT{};
+	//int TURN{};
+	//TracePathComponent* path_data{};
+	//
+	////intermediary values
+	////int IS_KING{};
 
-	int ATTACKER_COLOR_OFFSET{};
-	int DEFENDER_COLOR_OFFSET{};
+	//int ATTACKER_COLOR_OFFSET{};
+	//int DEFENDER_COLOR_OFFSET{};
 
-	int ATK_PIECES[6]{};
-	int DEF_PIECES[6]{};
+	//int ATK_PIECES[6]{};
+	//int DEF_PIECES[6]{};
 
-	InitGameState::Board new_board;
-	MovementData new_movement_data;
-	PositionalEvalComponent new_pos_eval;
+	//InitGameState::Board new_board;
+	//MovementData new_movement_data;
+	//PositionalEvalComponent new_pos_eval;
+
 };

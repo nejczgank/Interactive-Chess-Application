@@ -14,6 +14,7 @@
 #include "stalemate_data_component.h"
 #include "trace_path_component.h"
 #include "check_sim_frame_component.h"
+#include "king_subopt_info.h"
 
 int main() {
 
@@ -29,11 +30,6 @@ int main() {
 
 	//Create state for an AI instance
 	PositionalEvalComponent pos_eval;
-
-	//Create state for path tracing
-	TracePathComponent path_data{}; //THIS NEEDS TO BE REMOVED
-
-	//bool is_king_check = SpecialMoveValidationSystem::isKingCheck(board, 0);
 
 	//Initialize stalemate data
 	StalemateDataComponent stalemate_data{};
@@ -68,6 +64,7 @@ int main() {
 		GetMovementInfoSystem::pickingInfo(board, movement_data);
 
 		//Validate legal moves for the picked piece
+		TracePathComponent path_data;
 		const uint64_t VALID_MOVES = MoveValidationSystem::validator(board, movement_data, path_data);
 
 		//Look if there are any legal moves, to enforce correctness
@@ -85,9 +82,8 @@ int main() {
 		//Set previous board state for en-passant
 		//GetMovementInfoSystem::updatePreviousPawnState(board, movement_data);
 
-		EvalCheckAndMateComponent check_data;
-		EvalCheckAndMateSystem::initState(board, movement_data, VALID_PIECE_PLACEMENT, stalemate_data, TURN, check_data, path_data);
-		const int check = EvalCheckAndMateSystem::checkmateHandler(board, movement_data, pos_eval, VALID_PIECE_PLACEMENT, check_data, stalemate_data);
+		//EvalCheckAndMateSystem::initState(board, movement_data, VALID_PIECE_PLACEMENT, stalemate_data, TURN, check_data, path_data);
+		const int check = EvalCheckAndMateSystem::checkmateHandler(board, movement_data, pos_eval, VALID_PIECE_PLACEMENT, stalemate_data);
 
 		//Update the board with new values
 		BoardUpdatingSystem::updateBoards(board, movement_data, pos_eval, VALID_PIECE_PLACEMENT);

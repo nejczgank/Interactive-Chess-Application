@@ -140,6 +140,7 @@
     <ClInclude Include="display.h" />
     <ClInclude Include="king_move_indicies.h" />
     <ClInclude Include="check_sim_frame_component.h" />
+    <ClInclude Include="king_subopt_info.h" />
     <ClInclude Include="stalemate_data_component.h" />
     <ClInclude Include="trace_path_component.h" />
     <ClInclude Include="which_player_info.h" />

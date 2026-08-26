@@ -14,27 +14,51 @@
 #include "stalemate_data_component.h"
 #include "trace_path_component.h"
 #include "check_sim_frame_component.h"
+#include "king_subopt_info.h"
 
 class EvalCheckAndMateSystem {
 public:
-	static void initState(InitGameState::Board&, MovementData&, const uint64_t, StalemateDataComponent&, const int, EvalCheckAndMateComponent&, TracePathComponent& path_data);
-	static int checkmateHandler(InitGameState::Board&, MovementData&, PositionalEvalComponent&, const uint64_t, EvalCheckAndMateComponent&, StalemateDataComponent&);
-private:
+	//static void initState(InitGameState::Board&, MovementData&, const uint64_t, StalemateDataComponent&, const int, EvalCheckAndMateComponent&, TracePathComponent& path_data);
+	static int checkmateHandler(InitGameState::Board&, MovementData&, PositionalEvalComponent&, const uint64_t, StalemateDataComponent&);
 
-	//intermediary structs
+private:
+	//intermediary struct definitions
 	struct FoundOccupation
 	{
 		uint64_t allies{};
 		uint64_t enemies{};
 	};
 
+	struct CheckTypeColorComponent
+	{
+		int ATTACKER_COLOR{};
+		int DEFENDER_COLOR{};
+		int ATK_PIECES[6]{};
+		int DEF_PIECES[6]{};
+	};
+
+	struct checkTypeFrameComponent
+	{
+		CheckTypeColorComponent first_check_color_type{};
+		CheckTypeColorComponent second_check_color_type{};
+		bool IS_KING{};
+	};
+
+	//struct setters
 	static void setCheckSimFrame(InitGameState::Board&, MovementData&, PositionalEvalComponent&, CheckSimFrameComponent&);
-	static int isKingCheck(CheckSimFrameComponent&, TracePathComponent& , EvalCheckAndMateComponent&, bool);
-	static bool findCheck(const CheckSimFrameComponent&, TracePathComponent&, EvalCheckAndMateComponent&, const int, const int, const int(&)[6], const int(&)[6], bool);
-	static FoundOccupation findOccupation(EvalCheckAndMateComponent&, const int, const int, bool);
-	static int findTargetIndex(EvalCheckAndMateComponent&, const int(&)[6], bool);
-	static void isPieceAtkHelper(MovementData&, const CheckSimFrameComponent&, TracePathComponent&, EvalCheckAndMateComponent&, bool&, const int, const int(&)[6], const int(&)[6]);
+	static void setImpositionCheckColor(const MovementData&, CheckTypeColorComponent&);
+	static void setDiscoverCheckColor(const MovementData&, CheckTypeColorComponent&);
+	static void setCheckType(checkTypeFrameComponent&, const CheckTypeColorComponent&, const CheckTypeColorComponent&, bool);
+
+	//check
+	static int isKingCheck(CheckSimFrameComponent&, checkTypeFrameComponent&, TracePathComponent&);
+	//static bool findCheck(const CheckSimFrameComponent&, TracePathComponent&, const int, const int, const int(&)[6], const int(&)[6], bool);
+	static bool findCheck(const CheckSimFrameComponent&, CheckTypeColorComponent&, TracePathComponent&, const bool);
+	static FoundOccupation findOccupation(const CheckSimFrameComponent&, const int, const int, bool);
+	static int findTargetIndex(const CheckSimFrameComponent&, const int(&)[6], bool);
+	static void isPieceAtkHelper(MovementData&, const CheckSimFrameComponent&, TracePathComponent&, bool&, const int, const int(&)[6], const int(&)[6]);
 	
+	//checkmate
 	static bool isKingCheckmate(EvalCheckAndMateComponent&, StalemateDataComponent&);
 	static uint64_t findAttackPathHelper(EvalCheckAndMateComponent&);
 
