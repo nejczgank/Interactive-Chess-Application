@@ -95,9 +95,6 @@
     <ClInclude Include="eval_check_and_mate_system.h">
       <Filter>Header Files\MoveValidationSystems</Filter>
     </ClInclude>
-    <ClInclude Include="eval_check_and_mate_component.h">
-      <Filter>Header Files\MoveValidationComponents</Filter>
-    </ClInclude>
     <ClInclude Include="piece_info.h">
       <Filter>Header Files\Namespaces</Filter>
     </ClInclude>
@@ -123,6 +120,9 @@
       <Filter>Header Files\MoveValidationComponents</Filter>
     </ClInclude>
     <ClInclude Include="king_subopt_info.h">
+      <Filter>Header Files\Namespaces</Filter>
+    </ClInclude>
+    <ClInclude Include="extract_ray_type_info.h">
       <Filter>Header Files\Namespaces</Filter>
     </ClInclude>
   </ItemGroup>

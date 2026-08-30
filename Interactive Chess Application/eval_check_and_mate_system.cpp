@@ -1,51 +1,9 @@
 #include "eval_check_and_mate_system.h"
 
-//void EvalCheckAndMateSystem::initState(InitGameState::Board& BOARD, MovementData& SEL_MOVEMENT_DATA, const uint64_t VALID_PIECE_PLACEMENT, StalemateDataComponent& stalemate_data, const int TURN, EvalCheckAndMateComponent& check_data, TracePathComponent& path_data)
-//{
-//	/*
-//	 * PROCESSOR FUNCTION FOR OBTAINED STATE
-//	*/
-//
-//	using enum pieceInfo::piece;
-//
-//	//setting obtained parameters
-//	check_data.BOARD = &BOARD;
-//	check_data.SEL_MOVEMENT_DATA = &SEL_MOVEMENT_DATA;
-//	check_data.stalemate_data = &stalemate_data;
-//	check_data.VALID_PIECE_PLACEMENT = VALID_PIECE_PLACEMENT;
-//	check_data.TURN = TURN;
-//	check_data.path_data = &path_data;
-//
-//	//calculate intermediary values
-//	int constexpr CORRECTION = 6;
-//	check_data.ATTACKER_COLOR_OFFSET = SEL_MOVEMENT_DATA.attacker_color * CORRECTION;
-//	check_data.DEFENDER_COLOR_OFFSET = SEL_MOVEMENT_DATA.defender_color * CORRECTION;
-//
-//	//check_data.IS_KING = true;
-//
-//	check_data.ATK_PIECES[0] = pawn + check_data.ATTACKER_COLOR_OFFSET;
-//	check_data.ATK_PIECES[1] = knight + check_data.ATTACKER_COLOR_OFFSET;
-//	check_data.ATK_PIECES[2] = rook + check_data.ATTACKER_COLOR_OFFSET;
-//	check_data.ATK_PIECES[3] = bishop + check_data.ATTACKER_COLOR_OFFSET;
-//	check_data.ATK_PIECES[4] = queen + check_data.ATTACKER_COLOR_OFFSET;
-//	check_data.ATK_PIECES[5] = king + check_data.ATTACKER_COLOR_OFFSET;
-//
-//	check_data.DEF_PIECES[0] = pawn + check_data.DEFENDER_COLOR_OFFSET;
-//	check_data.DEF_PIECES[1] = knight + check_data.DEFENDER_COLOR_OFFSET;
-//	check_data.DEF_PIECES[2] = rook + check_data.DEFENDER_COLOR_OFFSET;
-//	check_data.DEF_PIECES[3] = bishop + check_data.DEFENDER_COLOR_OFFSET;
-//	check_data.DEF_PIECES[4] = queen + check_data.DEFENDER_COLOR_OFFSET;
-//	check_data.DEF_PIECES[5] = king + check_data.DEFENDER_COLOR_OFFSET;
-//
-//	check_data.new_board = BOARD;
-//	check_data.new_movement_data = SEL_MOVEMENT_DATA;
-//	check_data.new_pos_eval;
-//}
-
 int EvalCheckAndMateSystem::checkmateHandler(InitGameState::Board& board, MovementData& movement_data, PositionalEvalComponent& pos_eval, const uint64_t VALID_PIECE_PLACEMENT, StalemateDataComponent& stalemate_data)
 {
-
 	using enum kingSuboptInfo::subopt;
+	using enum ExtractRayTypeInfo::ray_type;
 
 	//create a frame of current game state which is used to
 	//simulate board movements for the purpose of determining check or checkmate
@@ -74,7 +32,7 @@ int EvalCheckAndMateSystem::checkmateHandler(InitGameState::Board& board, Moveme
 	checkTypeFrameComponent check_type;
 	setCheckType(check_type, discovered_check_type, imposition_check_type, IS_KING);
 
-	const int IS_CHECK = isKingCheck(check_sim_frame, check_type, path_data);
+	const int IS_CHECK = isKingCheck(check_sim_frame, check_type, path_data, attack_ray);
 
 	constexpr int NO_CHECK = 0;
 	constexpr int CHECK_FOUND = 2;
@@ -169,7 +127,7 @@ void EvalCheckAndMateSystem::setCheckType(checkTypeFrameComponent& check_type, c
 	check_type.IS_KING = IS_KING;
 }
 
-int EvalCheckAndMateSystem::isKingCheck(CheckSimFrameComponent& check_sim_frame, checkTypeFrameComponent& check_type, TracePathComponent& path_data)
+int EvalCheckAndMateSystem::isKingCheck(CheckSimFrameComponent& check_sim_frame, checkTypeFrameComponent& check_type, TracePathComponent& path_data, ExtractRayTypeInfo::ray_type ray_type)
 {
 	//this function runs whenever a piece on the board is moved
 	//it determines whether an opposing piece is forcing a check
@@ -180,26 +138,9 @@ int EvalCheckAndMateSystem::isKingCheck(CheckSimFrameComponent& check_sim_frame,
 	using enum occupancyInfo::occupancy;
 	using enum pieceInfo::piece;
 
-	/*auto& new_board = check_sim_frame.new_board;
-	auto& new_movement_data = check_sim_frame.new_movement_data;
-	auto& new_pos_eval = check_sim_frame.new_pos_eval;*/
-
 	auto& DISCOVERED = check_type.first_check_color_type;
 	auto& IMPOSED = check_type.second_check_color_type;
 	auto& IS_KING = check_type.IS_KING;
-
-	////FIND POSSIBLE DISCOVERED CHECK
-	//const uint64_t DISCOVERED_CHECK = -(
-	//	findCheck(
-	//		check_sim_frame,
-	//		path_data,
-	//		ATTACKER_COLOR,
-	//		DEFENDER_COLOR,
-	//		ATK_PIECES,
-	//		DEF_PIECES,
-	//		IS_KING
-	//	)
-	//);
 
 	//FIND POSSIBLE DISCOVERED CHECK
 	const uint64_t DISCOVERED_CHECK = -(
@@ -207,22 +148,10 @@ int EvalCheckAndMateSystem::isKingCheck(CheckSimFrameComponent& check_sim_frame,
 			check_sim_frame,
 			DISCOVERED,
 			path_data,
-			IS_KING
+			IS_KING,
+			ray_type
 		)
 	);
-
-	////FIND POSSIBLE CHECK IMPOSED BY THE ATTACKER
-	//const uint64_t IMPOSED_CHECK = -(
-	//	findCheck(
-	//		check_sim_frame,
-	//		path_data,
-	//		DEFENDER_COLOR,
-	//		ATTACKER_COLOR,
-	//		DEF_PIECES,
-	//		ATK_PIECES,
-	//		IS_KING
-	//	)
-	//);
 
 	//FIND POSSIBLE CHECK IMPOSED BY THE ATTACKER
 	const uint64_t IMPOSED_CHECK = -(
@@ -230,14 +159,10 @@ int EvalCheckAndMateSystem::isKingCheck(CheckSimFrameComponent& check_sim_frame,
 			check_sim_frame,
 			IMPOSED,
 			path_data,
-			IS_KING
+			IS_KING,
+			ray_type
 		)
 	);
-
-	//reset structs with new prefix
-	//THIS SHOULDN'T EXIST ANY LONGER
-	/*check_data.new_board = *check_data.BOARD;
-	check_data.new_movement_data = *check_data.SEL_MOVEMENT_DATA;*/
 
 	//calculate result
 	/*
@@ -260,7 +185,7 @@ int EvalCheckAndMateSystem::isKingCheck(CheckSimFrameComponent& check_sim_frame,
 }
 
 //bool EvalCheckAndMateSystem::findCheck(const CheckSimFrameComponent& check_sim_frame, TracePathComponent& path_data, const int COLOR, const int OPP_COLOR, const int(&ALLY_PIECES)[6], const int(&OPP_PIECES)[6], bool IS_KING)
-bool EvalCheckAndMateSystem::findCheck(const CheckSimFrameComponent& check_sim_frame, CheckTypeColorComponent& check_type, TracePathComponent& path_data, const bool IS_KING)
+bool EvalCheckAndMateSystem::findCheck(const CheckSimFrameComponent& check_sim_frame, CheckTypeColorComponent& check_type, TracePathComponent& path_data, const bool IS_KING, ExtractRayTypeInfo::ray_type ray_type)
 {
 	using enum pieceInfo::piece;
 
@@ -295,11 +220,11 @@ bool EvalCheckAndMateSystem::findCheck(const CheckSimFrameComponent& check_sim_f
 
 	bool attack_found = false;
 
-	isPieceAtkHelper(probe_sim_movement, check_sim_frame, path_data, attack_found, pawn,   ALLY_PIECES, OPP_PIECES);
-	isPieceAtkHelper(probe_sim_movement, check_sim_frame, path_data, attack_found, knight, ALLY_PIECES, OPP_PIECES);
-	isPieceAtkHelper(probe_sim_movement, check_sim_frame, path_data, attack_found, rook,   ALLY_PIECES, OPP_PIECES);
-	isPieceAtkHelper(probe_sim_movement, check_sim_frame, path_data, attack_found, bishop, ALLY_PIECES, OPP_PIECES);
-	isPieceAtkHelper(probe_sim_movement, check_sim_frame, path_data, attack_found, queen,  ALLY_PIECES, OPP_PIECES);
+	isPieceAtkHelper(probe_sim_movement, check_sim_frame, path_data, attack_found, pawn,   ALLY_PIECES, OPP_PIECES, ray_type);
+	isPieceAtkHelper(probe_sim_movement, check_sim_frame, path_data, attack_found, knight, ALLY_PIECES, OPP_PIECES, ray_type);
+	isPieceAtkHelper(probe_sim_movement, check_sim_frame, path_data, attack_found, rook,   ALLY_PIECES, OPP_PIECES, ray_type);
+	isPieceAtkHelper(probe_sim_movement, check_sim_frame, path_data, attack_found, bishop, ALLY_PIECES, OPP_PIECES, ray_type);
+	isPieceAtkHelper(probe_sim_movement, check_sim_frame, path_data, attack_found, queen,  ALLY_PIECES, OPP_PIECES, ray_type);
 
 	return attack_found;
 }
@@ -344,13 +269,13 @@ int EvalCheckAndMateSystem::findTargetIndex(const CheckSimFrameComponent& check_
 	return PICKED_SQUARE_IDX;
 }
 
-void EvalCheckAndMateSystem::isPieceAtkHelper(MovementData& probe_sim_movement, const CheckSimFrameComponent& check_sim_frame, TracePathComponent& path_data, bool& attack_found, const int PIECE, const int(&PIECES)[6], const int(&OPP_PIECES)[6])
+void EvalCheckAndMateSystem::isPieceAtkHelper(MovementData& probe_sim_movement, const CheckSimFrameComponent& check_sim_frame, TracePathComponent& path_data, bool& attack_found, const int PIECE, const int(&PIECES)[6], const int(&OPP_PIECES)[6], ExtractRayTypeInfo::ray_type ray_type)
 {
 	auto& new_board = check_sim_frame.new_board;
 
-	probe_sim_movement.picked_piece_type = PIECES[PIECE];											  //set the exact piece type of the attacker
-	uint64_t valid_moves = MoveValidationSystem::validator(new_board, probe_sim_movement, path_data); //find where the attacker can move
-	attack_found |= ( (new_board.pieces[ OPP_PIECES[PIECE] ] & valid_moves) > 0);					  //find if it's movement profile intersects with the piece we're inspecting
+	probe_sim_movement.picked_piece_type = PIECES[PIECE];														//set the exact piece type of the attacker
+	uint64_t valid_moves = MoveValidationSystem::validator(new_board, probe_sim_movement, path_data, ray_type); //find where the attacker can move
+	attack_found |= ( (new_board.pieces[ OPP_PIECES[PIECE] ] & valid_moves) > 0);								//find if it's movement profile intersects with the piece we're inspecting
 }
 
 //bool EvalCheckAndMateSystem::isKingCheckmate(EvalCheckAndMateComponent& check_data, StalemateDataComponent& stalemate_data)

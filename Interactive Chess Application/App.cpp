@@ -9,17 +9,18 @@
 #include "board_updating_system.h"
 #include "positional_eval_component.h"
 #include "positional_eval_system.h"
-#include "eval_check_and_mate_component.h"
 #include "eval_check_and_mate_system.h"
 #include "stalemate_data_component.h"
 #include "trace_path_component.h"
 #include "check_sim_frame_component.h"
 #include "king_subopt_info.h"
+#include "extract_ray_type_info.h"
 
 int main() {
 
 	//scoped enum declaration
 	using enum moveInfo::move;
+	using enum ExtractRayTypeInfo::ray_type;
 
 	//Initialize game state
 	InitGameState init_board;
@@ -53,7 +54,8 @@ int main() {
 		//enforce picked piece color correctness, and disallow an empty square to represent the picked piece
 		const int TURN = PlayerInput::turnValidation(board, movement_data, white_turn, black_turn);
 
-		if (TURN == 0)
+		constexpr int NO_VALID_TURN = 0;
+		if (TURN == NO_VALID_TURN)
 		{
 			PlayerInput::invalidPick();
 			continue;
@@ -64,13 +66,14 @@ int main() {
 		GetMovementInfoSystem::pickingInfo(board, movement_data);
 
 		//Validate legal moves for the picked piece
-		TracePathComponent path_data;
-		const uint64_t VALID_MOVES = MoveValidationSystem::validator(board, movement_data, path_data);
+		TracePathComponent probe_path_data;
+		const uint64_t VALID_MOVES = MoveValidationSystem::validator(board, movement_data, probe_path_data, attack_ray);
 
 		//Look if there are any legal moves, to enforce correctness
 		const uint64_t VALID_PIECE_PLACEMENT = BoardUpdatingSystem::movementValidation(movement_data, VALID_MOVES);
 
-		if (VALID_PIECE_PLACEMENT == 0ULL)
+		constexpr uint64_t NO_VALID_PLACEMENT = 0ULL;
+		if (VALID_PIECE_PLACEMENT == NO_VALID_PLACEMENT)
 		{
 			PlayerInput::outOfScope();
 			continue;
@@ -78,12 +81,13 @@ int main() {
 
 		//Obtain movement data for the placed piece
 		GetMovementInfoSystem::placementInfo(board, movement_data);
-		
-		//Set previous board state for en-passant
-		//GetMovementInfoSystem::updatePreviousPawnState(board, movement_data);
 
-		//EvalCheckAndMateSystem::initState(board, movement_data, VALID_PIECE_PLACEMENT, stalemate_data, TURN, check_data, path_data);
+		//---------------//---------------//--------------- CHECK VALIDATION / GAME ENDING CONDITION ---------------//---------------//---------------//---------------
+
+		//obtain an evaluation regarding checks or checkmates
 		const int check = EvalCheckAndMateSystem::checkmateHandler(board, movement_data, pos_eval, VALID_PIECE_PLACEMENT, stalemate_data);
+
+		//---------------//---------------//--------------- UPDATE STATE ---------------//---------------//---------------//---------------
 
 		//Update the board with new values
 		BoardUpdatingSystem::updateBoards(board, movement_data, pos_eval, VALID_PIECE_PLACEMENT);

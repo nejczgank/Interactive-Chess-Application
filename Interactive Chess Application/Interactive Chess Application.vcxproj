@@ -138,6 +138,7 @@
   <ItemGroup>
     <ClInclude Include="board_updating_system.h" />
     <ClInclude Include="display.h" />
+    <ClInclude Include="extract_ray_type_info.h" />
     <ClInclude Include="king_move_indicies.h" />
     <ClInclude Include="check_sim_frame_component.h" />
     <ClInclude Include="king_subopt_info.h" />
@@ -156,7 +157,6 @@
     <ClInclude Include="positional_eval_component.h" />
     <ClInclude Include="positional_eval_system.h" />
     <ClInclude Include="ray_direction_info.h" />
-    <ClInclude Include="eval_check_and_mate_component.h" />
     <ClInclude Include="eval_check_and_mate_system.h" />
   </ItemGroup>
   <ItemGroup>

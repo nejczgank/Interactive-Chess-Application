@@ -9,12 +9,12 @@
 #include "init_game_state.h"
 #include "move_validation_system.h"
 #include "piece_info.h"
-#include "eval_check_and_mate_component.h"
 #include "board_updating_system.h"
 #include "stalemate_data_component.h"
 #include "trace_path_component.h"
 #include "check_sim_frame_component.h"
 #include "king_subopt_info.h"
+#include "extract_ray_type_info.h"
 
 class EvalCheckAndMateSystem {
 public:
@@ -51,16 +51,16 @@ private:
 	static void setCheckType(checkTypeFrameComponent&, const CheckTypeColorComponent&, const CheckTypeColorComponent&, bool);
 
 	//check
-	static int isKingCheck(CheckSimFrameComponent&, checkTypeFrameComponent&, TracePathComponent&);
+	static int isKingCheck(CheckSimFrameComponent&, checkTypeFrameComponent&, TracePathComponent&, ExtractRayTypeInfo::ray_type);
 	//static bool findCheck(const CheckSimFrameComponent&, TracePathComponent&, const int, const int, const int(&)[6], const int(&)[6], bool);
-	static bool findCheck(const CheckSimFrameComponent&, CheckTypeColorComponent&, TracePathComponent&, const bool);
+	static bool findCheck(const CheckSimFrameComponent&, CheckTypeColorComponent&, TracePathComponent&, const bool, ExtractRayTypeInfo::ray_type);
 	static FoundOccupation findOccupation(const CheckSimFrameComponent&, const int, const int, bool);
 	static int findTargetIndex(const CheckSimFrameComponent&, const int(&)[6], bool);
-	static void isPieceAtkHelper(MovementData&, const CheckSimFrameComponent&, TracePathComponent&, bool&, const int, const int(&)[6], const int(&)[6]);
+	static void isPieceAtkHelper(MovementData&, const CheckSimFrameComponent&, TracePathComponent&, bool&, const int, const int(&)[6], const int(&)[6], ExtractRayTypeInfo::ray_type);
 	
 	//checkmate
-	static bool isKingCheckmate(EvalCheckAndMateComponent&, StalemateDataComponent&);
-	static uint64_t findAttackPathHelper(EvalCheckAndMateComponent&);
+	/*static bool isKingCheckmate(EvalCheckAndMateComponent&, StalemateDataComponent&);
+	static uint64_t findAttackPathHelper(EvalCheckAndMateComponent&);*/
 
 	/*static int isKingCheck(const InitGameState::Board&, const MovementData&, const uint64_t, const int, const int, const bool);
 	static void isPieceAtkHelper(const InitGameState::Board&, MovementData&, bool&, const int, const int(&)[6], const int(&)[6]);
