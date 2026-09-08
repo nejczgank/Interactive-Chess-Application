@@ -33,8 +33,10 @@ private:
 	{
 		int ATTACKER_COLOR{};
 		int DEFENDER_COLOR{};
+		int ATTACKER_COLOR_OFFSET{};
+		int DEFENDER_COLOR_OFFSET{};
 		int ATK_PIECES[6]{};
-		int DEF_PIECES[6]{};
+		int DEF_PIECES[6]{};	
 	};
 
 	struct checkTypeFrameComponent
@@ -51,13 +53,17 @@ private:
 	static void setCheckType(checkTypeFrameComponent&, const CheckTypeColorComponent&, const CheckTypeColorComponent&, bool);
 
 	//check
-	static int isKingCheck(CheckSimFrameComponent&, checkTypeFrameComponent&, TracePathComponent&, ExtractRayTypeInfo::ray_type);
-	//static bool findCheck(const CheckSimFrameComponent&, TracePathComponent&, const int, const int, const int(&)[6], const int(&)[6], bool);
-	static bool findCheck(const CheckSimFrameComponent&, CheckTypeColorComponent&, TracePathComponent&, const bool, ExtractRayTypeInfo::ray_type);
+	static int isKingCheck(CheckSimFrameComponent&, checkTypeFrameComponent&, ExtractRayTypeInfo::ray_type);
+	static bool findCheck(const CheckSimFrameComponent&, CheckTypeColorComponent&, const bool, ExtractRayTypeInfo::ray_type);
 	static FoundOccupation findOccupation(const CheckSimFrameComponent&, const int, const int, bool);
 	static int findTargetIndex(const CheckSimFrameComponent&, const int(&)[6], bool);
 	static void isPieceAtkHelper(MovementData&, const CheckSimFrameComponent&, TracePathComponent&, bool&, const int, const int(&)[6], const int(&)[6], ExtractRayTypeInfo::ray_type);
 	
+	//checkmate
+	static TracePathComponent findAttackPathHelper(const CheckSimFrameComponent&, const CheckTypeColorComponent&, StalemateDataComponent&);
+	static bool isKingCheckmate(const CheckSimFrameComponent&, const CheckTypeColorComponent&, const CheckTypeColorComponent&, StalemateDataComponent&);
+	
+
 	//checkmate
 	/*static bool isKingCheckmate(EvalCheckAndMateComponent&, StalemateDataComponent&);
 	static uint64_t findAttackPathHelper(EvalCheckAndMateComponent&);*/

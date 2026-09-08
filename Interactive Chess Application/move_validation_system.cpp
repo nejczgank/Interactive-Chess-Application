@@ -463,10 +463,13 @@ uint64_t MoveValidationSystem::rookValidation(const InitGameState::Board& board,
 	//return a typical attack ray for a given piece, or the one which may be imposing a check
 	const uint64_t RAY = pickRayType(validated_mask_bundle, ray_type);
 
-	//rook_mask |= captureRayHelper(board, movement_data, north, vertical, path_data);		//north
-	//rook_mask |= captureRayHelper(board, movement_data, east,  horizontal, path_data);	//east
-	//rook_mask |= captureRayHelper(board, movement_data, south, vertical,   path_data);	//south
-	//rook_mask |= captureRayHelper(board, movement_data, west,  horizontal, path_data);	//west
+	//adjust the check ray data
+	//(!!! I think mutating state here won't cause issues, even though it's brittle.
+	//I'm doing it since only sliding pieces require path data mutation. And I don't 
+	//want to pollute my code with empty structs invocations elsewhere,
+	//when instantiating the validation function. If anything were to break down the line
+	//this might be the culprit, as it goes against Data Oriented Design principles !!!)
+	path_data.check_ray = validated_mask_bundle.check_ray;
 
 	return RAY;
 }
@@ -486,10 +489,13 @@ uint64_t MoveValidationSystem::bishopValidation(const InitGameState::Board& boar
 	//return a typical attack ray for a given piece, or the one which may be imposing a check
 	const uint64_t RAY = pickRayType(validated_mask_bundle, ray_type);
 
-	//bishop_mask |= captureRayHelper(board, movement_data, north_east, diagonal,	     path_data); //north-east
-	//bishop_mask |= captureRayHelper(board, movement_data, south_east, anti_diagonal, path_data);	 //south-east
-	//bishop_mask |= captureRayHelper(board, movement_data, south_west, diagonal,		 path_data); //south-west
-	//bishop_mask |= captureRayHelper(board, movement_data, north_west, anti_diagonal, path_data);	 //north-west
+	//adjust the check ray data
+	//(!!! I think mutating state here won't cause issues, even though it's brittle.
+	//I'm doing it since only sliding pieces require path data mutation. And I don't 
+	//want to pollute my code with empty structs invocations elsewhere,
+	//when instantiating the validation function. If anything were to break down the line
+	//this might be the culprit, as it goes against Data Oriented Design principles !!!)
+	path_data.check_ray = validated_mask_bundle.check_ray;
 
 	return RAY;
 }
@@ -513,14 +519,13 @@ uint64_t MoveValidationSystem::queenValidation(const InitGameState::Board& board
 	//return a typical attack ray for a given piece, or the one which may be imposing a check
 	const uint64_t RAY = pickRayType(validated_mask_bundle, ray_type);
 
-	//queen_mask |= captureRayHelper(board, movement_data, north,		 vertical,		path_data);	//north
-	//queen_mask |= captureRayHelper(board, movement_data, north_east, diagonal,		path_data);	//north-east
-	//queen_mask |= captureRayHelper(board, movement_data, east,		 horizontal,	path_data);	//east
-	//queen_mask |= captureRayHelper(board, movement_data, south_east, anti_diagonal, path_data);	//south-east
-	//queen_mask |= captureRayHelper(board, movement_data, south,		 vertical,		path_data);	//south
-	//queen_mask |= captureRayHelper(board, movement_data, south_west, diagonal,		path_data);	//south-west
-	//queen_mask |= captureRayHelper(board, movement_data, west,		 horizontal,	path_data);	//west
-	//queen_mask |= captureRayHelper(board, movement_data, north_west, anti_diagonal, path_data);	//north-west
+	//adjust the check ray data
+	//(!!! I think mutating state here won't cause issues, even though it's brittle.
+	//I'm doing it since only sliding pieces require path data mutation. And I don't 
+	//want to pollute my code with empty structs invocations elsewhere,
+	//when instantiating the validation function. If anything were to break down the line
+	//this might be the culprit, as it goes against Data Oriented Design principles !!!)
+	path_data.check_ray = validated_mask_bundle.check_ray;
 
 	return RAY;
 }
