@@ -100,6 +100,9 @@ void BoardUpdatingSystem::clearOvertakenSquareHelper(InitGameState::Board& board
 	//**both occupancy and piece data
 	board.occupancy[movement_data.defender_color] &= ~VALID_PIECE_PLACEMENT;
 	board.pieces[movement_data.placed_piece_type] &= ~VALID_PIECE_PLACEMENT;
+
+	//doing the same update for enemies inside movement_data. Used when dealing with check/checkmate
+	movement_data.enemies &= ~(1ULL << movement_data.placement_square_idx);
 }
 
 void BoardUpdatingSystem::clearPassantedPieceHelper(InitGameState::Board& board, MovementData& movement_data, PositionalEvalComponent& pos_eval_data, const uint64_t VALID_PIECE_PLACEMENT)
@@ -151,6 +154,9 @@ void BoardUpdatingSystem::clearPickedPieceHelper(InitGameState::Board& board, Mo
 
 	//clearing the piece
 	board.pieces[movement_data.picked_piece_type] &= ~(1ULL << movement_data.picked_square_idx);
+
+	//doing the same update for allies inside movement_data. Used when dealing with check/checkmate
+	movement_data.allies &= ~(1ULL << movement_data.picked_square_idx);
 }
 
 void BoardUpdatingSystem::placeNewPieceHelper(InitGameState::Board& board, MovementData& movement_data, const uint64_t VALID_PIECE_PLACEMENT)
@@ -163,6 +169,9 @@ void BoardUpdatingSystem::placeNewPieceHelper(InitGameState::Board& board, Movem
 	//adjusting new occupancy
 	board.occupancy[movement_data.attacker_color] |= VALID_PIECE_PLACEMENT;
 
+	//doing the same update for allies inside movement_data. Used when dealing with check/checkmate
+	movement_data.allies |= (1ULL << movement_data.placement_square_idx);
+
 	//adjusting piece type, whether pawn promotion occurred
 	const int SEL_PIECE_IDX = (movement_data.promoted_piece_type > 0); //0 - regular move, 1 - pawn promotion 
 	uint64_t* regular_placement = &board.pieces[movement_data.picked_piece_type];
@@ -171,6 +180,7 @@ void BoardUpdatingSystem::placeNewPieceHelper(InitGameState::Board& board, Movem
 	
 	//placing the new piece
 	*board_selection[SEL_PIECE_IDX] |= VALID_PIECE_PLACEMENT;
+
 }
 
 uint64_t BoardUpdatingSystem::enPassantPrecondition(MovementData& movement_data)

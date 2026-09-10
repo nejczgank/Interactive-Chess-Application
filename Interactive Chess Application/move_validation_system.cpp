@@ -565,8 +565,8 @@ uint64_t MoveValidationSystem::kingValidation(const InitGameState::Board& board,
 
 	const uint64_t PICKED_BIT_MASK = 1ULL << movement_data.picked_square_idx;
 
-	constexpr uint64_t NOT_A_FILE = ~0x1010101010101010;
-	constexpr uint64_t NOT_H_FILE = ~0x8080808080808080;
+	constexpr uint64_t NOT_A_FILE = ~0x101010101010101ULL;
+	constexpr uint64_t NOT_H_FILE = ~0x8080808080808080ULL;
 
 	const uint64_t CLIPPED_MOVED_BITS_MASK[] =
 	{
@@ -607,7 +607,7 @@ uint64_t MoveValidationSystem::kingValidation(const InitGameState::Board& board,
 	{
 		int DIRECTED_SQUARE_IDX = TARGET_SQUARE_IDX + ALL_SHIFT_DIRS[i];
 
-		const uint64_t CRUDE_KING_BUFFER_MASK = (TARGET_SQUARE_IDX >= 0) ?
+		const uint64_t CRUDE_KING_BUFFER_MASK = (DIRECTED_SQUARE_IDX >= 0) ? //changed TARGET_SQUARE_IDX to DIRECTED_SQUARE_IDX
 			(  7ULL <<  DIRECTED_SQUARE_IDX       ) * 65793ULL			 : //prevents upper bound mask from clipping
 			( (7ULL << (DIRECTED_SQUARE_IDX += 8) ) * 65793ULL) >> 17;	   //prevents lower bound mask from clipping
 		
@@ -633,6 +633,7 @@ uint64_t MoveValidationSystem::kingValidation(const InitGameState::Board& board,
 	king_mask |= CLIPPED_MOVED_BITS_MASK[down_right] & ~ENEMY_KING_ADJACENT[down_right] & ~movement_data.allies;
 
 	return king_mask;
+
 }
 
 uint64_t MoveValidationSystem::validator(const InitGameState::Board& board, MovementData& movement_data, TracePathComponent& path_data, ExtractRayTypeInfo::ray_type ray_type)
