@@ -1,10 +1,10 @@
 #include "move_validation_system.h"
 
-uint64_t MoveValidationSystem::universalRay(MovementData& movement_data, const uint64_t direction_bitfield, const uint64_t full_ray)
+uint64_t MoveValidationSystem::universalRay(const MovementData& movement_data, const uint64_t direction_bitfield, const uint64_t full_ray)
 {
 	using enum whichPlayerInfo::playerInfo;
 
-	const uint64_t SEL_RAY_HALF		= -(int64_t)(direction_bitfield & 0x01); //0 - lsb, 1 - msb
+	const uint64_t SEL_RAY_HALF		= -(int64_t)(direction_bitfield & 0x01);		//0 - lsb, 1 - msb
 	const uint64_t SEL_RAY_ROTATION = -(int64_t)((direction_bitfield >> 1) & 0x01); //0 - horizontal, 1 - vertical
 
 	//find the appropriate half ray
@@ -54,7 +54,7 @@ uint64_t MoveValidationSystem::universalRay(MovementData& movement_data, const u
 	return UNIVERSAL_RAY_MASK;
 }
 
-uint64_t MoveValidationSystem::rayHalvingHelper(MovementData& movement_data, const uint64_t SEL_RAY_HALF, const uint64_t SEL_RAY_ROTATION, const uint64_t full_ray)
+uint64_t MoveValidationSystem::rayHalvingHelper(const MovementData& movement_data, const uint64_t SEL_RAY_HALF, const uint64_t SEL_RAY_ROTATION, const uint64_t full_ray)
 {
 	/*
 	* a ray is initially constructed via full_ray, obtained from defined constants in ray_transposition_info
@@ -72,26 +72,28 @@ uint64_t MoveValidationSystem::rayHalvingHelper(MovementData& movement_data, con
 	uint64_t transposed_ray_mask = 0;
 
 	//the implementation of the ray transformation mechanic varies, whether it's diagonal or nondiagonal
-	if (full_ray == anti_diagonal || full_ray == diagonal) 
-	{ 
-		transposed_ray_mask = diagonalTransformation(movement_data, full_ray);
-	}
-	else 
+	switch (full_ray)
 	{
+	case anti_diagonal:
+	case diagonal:
+		transposed_ray_mask = diagonalTransformation(movement_data, full_ray);
+		break;
+	default:
 		transposed_ray_mask = nonDiagonalTransformation(movement_data, SEL_RAY_ROTATION, full_ray);
+		break;
 	}
 
 	//ray halving creates a mask that intersects with full ray to isolate the specific direction
 	//**1ULL is at first idx. from there there are 63 possible shifts
 	//**+1 corrects so that the origin square isn't included, even at idx 0
-	const uint64_t IF_UPPER_HALF = IF_RAY_HALF & ~( (1ULL << (movement_data.picked_square_idx + 1) ) - 1);
+	const uint64_t IF_UPPER_HALF = IF_RAY_HALF  & ~( (1ULL << (movement_data.picked_square_idx + 1) ) - 1);
 	const uint64_t IF_LOWER_HALF = ~IF_RAY_HALF & ( (1ULL << movement_data.picked_square_idx) - 1);
 	const uint64_t HALF_MASK = IF_UPPER_HALF | IF_LOWER_HALF;
 
 	return transposed_ray_mask & HALF_MASK; //intersected ray and valid half for the ray, to provide direction
 }
 
-uint64_t MoveValidationSystem::diagonalTransformation(MovementData& movement_data, const uint64_t full_ray)
+uint64_t MoveValidationSystem::diagonalTransformation(const MovementData& movement_data, const uint64_t full_ray)
 {
 	/*
 	* here a diagonal or anti-diagonal ray gets transposed to the origin square
@@ -99,7 +101,7 @@ uint64_t MoveValidationSystem::diagonalTransformation(MovementData& movement_dat
 	* require their own logic
 	* **wrap-around, doesn't occur because shifting the ray up or down clips the excess bits
 	* 
-	* °  -> origin
+	* ° -> origin
 	* / -> diagonal
 	* 
 	* DIAGONAL (/):
@@ -148,7 +150,7 @@ uint64_t MoveValidationSystem::diagonalTransformation(MovementData& movement_dat
 	return TRANSPOSED_DIAGONAL_MASK;
 }
 
-uint64_t MoveValidationSystem::nonDiagonalTransformation(MovementData& movement_data, const uint64_t SEL_RAY_ROTATION, const uint64_t full_ray)
+uint64_t MoveValidationSystem::nonDiagonalTransformation(const MovementData& movement_data, const uint64_t SEL_RAY_ROTATION, const uint64_t full_ray)
 {
 	/*
 	* transposes the ray to the origin of the piece
@@ -173,7 +175,7 @@ uint64_t MoveValidationSystem::nonDiagonalTransformation(MovementData& movement_
 	return MOVE_VERTICAL_RAY_MASK | MOVE_HORIZONTAL_RAY_MASK;
 }
 
-uint64_t MoveValidationSystem::findBlockersHelper(MovementData& movement_data, const uint64_t SEL_RAY_HALF, const uint64_t DIRECTIONAL_RAY_MASK, const whichPlayerInfo::playerInfo PLAYER)
+uint64_t MoveValidationSystem::findBlockersHelper(const MovementData& movement_data, const uint64_t SEL_RAY_HALF, const uint64_t DIRECTIONAL_RAY_MASK, const whichPlayerInfo::playerInfo PLAYER)
 {
 	/*
 	* previous logic applied to halving the ray is applied to blockers as well
@@ -196,7 +198,7 @@ uint64_t MoveValidationSystem::findBlockersHelper(MovementData& movement_data, c
 	const uint64_t LOWER_HALF_INC_MASK = (LOWEST_BLOCKER_BIT_MASK << 1) - 1;
 	const uint64_t LOWER_HALF_EXC_MASK = LOWEST_BLOCKER_BIT_MASK - 1;
 	const uint64_t UPPER_HALF_INC_MASK = ~(HIGHEST_BLOCKER_BIT_MASK - 1);
-	const uint64_t UPPER_HALF_EXC_MASK = ~((HIGHEST_BLOCKER_BIT_MASK << 1) - 1);
+	const uint64_t UPPER_HALF_EXC_MASK = ~( (HIGHEST_BLOCKER_BIT_MASK << 1) - 1);
 
 	//enemies - ~~, allies - ~
 	//determine whether pieces need to be included or excluded
@@ -210,8 +212,14 @@ uint64_t MoveValidationSystem::findBlockersHelper(MovementData& movement_data, c
 	return HALF_MASK & DIRECTIONAL_RAY_MASK;
 }
 
-uint64_t MoveValidationSystem::pawnValidation(InitGameState::Board& board, MovementData& movement_data)
+uint64_t MoveValidationSystem::pawnValidation(const InitGameState::Board& board, MovementData& movement_data, TracePathComponent& path_data, ExtractRayTypeInfo::ray_type)
 {
+	/*
+	* Pawns have their forward advancement movements validated first
+	* **Initial double movement requires validating current pawn rank and potential occupancy
+	* Followed by attacks and lastly special moves
+	*/
+
 	using enum occupancyInfo::occupancy;
 	using enum pieceInfo::piece;
 
@@ -226,14 +234,14 @@ uint64_t MoveValidationSystem::pawnValidation(InitGameState::Board& board, Movem
 	//evaluate if the selected pieces rank corresponds to the appropriate color coded initial pawn rank
 	const uint64_t INIT_POS_MASK = (IF_WHITE & (uint64_t)INIT_WHITE_PAWNS_RANK) | (IF_BLACK & (uint64_t)INIT_BLACK_PAWNS_RANK);
 	const int64_t RANK_EVAL = (movement_data.picked_square_idx / RANKS) == (int64_t)INIT_POS_MASK;
-	uint64_t IF_INIT = -RANK_EVAL;	
+	const uint64_t IF_INIT = -RANK_EVAL;	
 
 	//preventing progression to occupied squares (regular move)
 	//**working for both colors
 	constexpr uint64_t VERT_ADJUST = 8;
 
 	const uint64_t REGULAR_WHITE_MOVE_MASK = (1ULL << (movement_data.picked_square_idx + VERT_ADJUST) );
-	const uint64_t REGULAR_BLACK_MOVE_MASK = ((1ULL << movement_data.picked_square_idx) >> VERT_ADJUST);
+	const uint64_t REGULAR_BLACK_MOVE_MASK = ( (1ULL << movement_data.picked_square_idx) >> VERT_ADJUST);
 	const uint64_t REGULAR_WHITE_MOVE_BLOCKED_MASK = board.occupancy[all] & REGULAR_WHITE_MOVE_MASK;
 	const uint64_t REGULAR_BLACK_MOVE_BLOCKED_MASK = board.occupancy[all] & REGULAR_BLACK_MOVE_MASK;
 	const uint64_t REGULAR_BLOCKED_MASK = (IF_WHITE & REGULAR_WHITE_MOVE_BLOCKED_MASK) | (IF_BLACK & REGULAR_BLACK_MOVE_BLOCKED_MASK);
@@ -242,10 +250,10 @@ uint64_t MoveValidationSystem::pawnValidation(InitGameState::Board& board, Movem
 	//preventing progression to occupied squares (initial double move)
 	//**working for both colors
 	constexpr uint64_t TWO_SQUARES = 0X101ULL;
-	constexpr uint64_t DOUBLE_VERT_ADJUST = 16;
+	uint64_t double_vert_adjust = 16;
 
 	const uint64_t DOUBLE_WHITE_MOVE_MASK = (TWO_SQUARES << (movement_data.picked_square_idx + VERT_ADJUST) );
-	const uint64_t DOUBLE_BLACK_MOVE_MASK = ( (TWO_SQUARES << movement_data.picked_square_idx) >> DOUBLE_VERT_ADJUST);
+	const uint64_t DOUBLE_BLACK_MOVE_MASK = ( (TWO_SQUARES << movement_data.picked_square_idx) >> double_vert_adjust);
 	const uint64_t DOUBLE_WHITE_MOVE_BLOCKED_MASK = board.occupancy[all] & DOUBLE_WHITE_MOVE_MASK;
 	const uint64_t DOUBLE_BLACK_MOVE_BLOCKED_MASK = board.occupancy[all] & DOUBLE_BLACK_MOVE_MASK;
 	const uint64_t DOUBLE_BLOCKED_MASK = (IF_WHITE & DOUBLE_WHITE_MOVE_BLOCKED_MASK) | (IF_BLACK & DOUBLE_BLACK_MOVE_BLOCKED_MASK);
@@ -272,36 +280,67 @@ uint64_t MoveValidationSystem::pawnValidation(InitGameState::Board& board, Movem
 	const uint64_t REGULAR_ATTACK_MASK = 
 		(IF_WHITE & NOT_H & (board.occupancy[black] & (1ULL << (movement_data.picked_square_idx + LEFT_ATTACK) ) ) )   |
 		(IF_WHITE &	NOT_A & (board.occupancy[black] & (1ULL << (movement_data.picked_square_idx + RIGHT_ATTACK) ) ) )  |
-		(IF_BLACK & NOT_A & (board.occupancy[white] & ((1ULL << movement_data.picked_square_idx) >> LEFT_ATTACK) ) )  |
-		(IF_BLACK &	NOT_H & (board.occupancy[white] & ((1ULL << movement_data.picked_square_idx) >> RIGHT_ATTACK) ) )
+		(IF_BLACK & NOT_A & (board.occupancy[white] & ( (1ULL << movement_data.picked_square_idx) >> LEFT_ATTACK) ) )  |
+		(IF_BLACK &	NOT_H & (board.occupancy[white] & ( (1ULL << movement_data.picked_square_idx) >> RIGHT_ATTACK) ) )
 	;
 
 	pawn_mask |= REGULAR_ATTACK_MASK;
 
-	//pawn promotion
-	/*constexpr int BACK_RANK_WHITE_SIDE = 0;
-	constexpr int BACK_RANK_BLACK_SIDE = 7;
+	//PAWN PROMOTION (TO QUEEN)
+	constexpr int BACK_RANK_WHITE_SIDE_IDX = 0;
+	constexpr int BACK_RANK_BLACK_SIDE_IDX = 7;
 	
-	const int EVAL_WHITE_PROMOTION = (movement_data.placement_square_idx / RANKS) == BACK_RANK_BLACK_SIDE;
-	const int EVAL_BLACK_PROMOTION = (movement_data.placement_square_idx / RANKS) == BACK_RANK_WHITE_SIDE;
+	const int EVAL_WHITE_PROMOTION = (movement_data.placement_square_idx / RANKS) == BACK_RANK_BLACK_SIDE_IDX;
+	const int EVAL_BLACK_PROMOTION = (movement_data.placement_square_idx / RANKS) == BACK_RANK_WHITE_SIDE_IDX;
 	
 	const uint64_t IF_WHITE_PAWN_PROMOTE = -(int64_t)(IF_WHITE != 0ULL && EVAL_WHITE_PROMOTION);
 	const uint64_t IF_BLACK_PAWN_PROMOTE = -(int64_t)(IF_BLACK != 0ULL && EVAL_BLACK_PROMOTION);
 
-	if ( (IF_WHITE_PAWN_PROMOTE | IF_BLACK_PAWN_PROMOTE) != 0ULL) 
-	{
-		movement_data.picked_piece_type = (int)( (IF_WHITE_PAWN_PROMOTE & white_queen) | (IF_BLACK_PAWN_PROMOTE & black_queen) );
-	}*/
+	movement_data.promoted_piece_type = (int) (
+		(IF_WHITE_PAWN_PROMOTE & white_queen) |
+		(IF_BLACK_PAWN_PROMOTE & black_queen)
+	);
 
-	//en-passant
+	/* 
+	* EN-PASSANT
+	* enemy must make the move to your properly situated pawn
+	* it must be an initial double move
+	* only legal for a specified pawn at that specific turn
+	* **conditions for en-passant determined in board state
+	*/
 
+	constexpr int SIDE = 1;
+	const uint64_t PICKED_BIT_MASK = 1ULL << movement_data.picked_square_idx;
+
+	constexpr int UP_LEFT    = 7; 
+	constexpr int UP_RIGHT   = 9;
+	constexpr int DOWN_LEFT  = 9;
+	constexpr int DOWN_RIGHT = 7;
+
+	uint64_t IF_BLACK_PAWN_LEFT   = -(int64_t)( ( (PICKED_BIT_MASK >> SIDE) & board.pieces[black_pawn] ) > 0 );
+	uint64_t IF_BLACK_PAWN_RIGHT  = -(int64_t)( ( (PICKED_BIT_MASK << SIDE) & board.pieces[black_pawn] ) > 0 );
+	uint64_t IF_WHITE_PAWN_RIGHT  = -(int64_t)( ( (PICKED_BIT_MASK << SIDE) & board.pieces[white_pawn] ) > 0 );
+	uint64_t IF_WHITE_PAWN_LEFT   = -(int64_t)( ( (PICKED_BIT_MASK >> SIDE) & board.pieces[white_pawn] ) > 0 );
+
+	const uint64_t EN_PASSANT_MASK =
+
+		(movement_data.passant_mask & IF_BLACK_PAWN_LEFT  & (PICKED_BIT_MASK << UP_LEFT) )    |
+		(movement_data.passant_mask & IF_BLACK_PAWN_RIGHT & (PICKED_BIT_MASK << UP_RIGHT) )   |
+		(movement_data.passant_mask & IF_WHITE_PAWN_LEFT  & (PICKED_BIT_MASK >> DOWN_LEFT) )  |
+		(movement_data.passant_mask & IF_WHITE_PAWN_RIGHT & (PICKED_BIT_MASK >> DOWN_RIGHT) )
+	;
+	pawn_mask |= EN_PASSANT_MASK;
+
+	//flag that passant has been used for the upcoming board update
+	movement_data.passant_used = (EN_PASSANT_MASK > 0);
+
+	//exclude kings and update board state
+	pawn_mask = excludeKingOrigin(board, pawn_mask);
 
 	return pawn_mask;
 }
 
-//following functions have a board argument, because pawn validation required it, and all functions need same
-//parameters for the jump table to execute
-uint64_t MoveValidationSystem::knightValidation(InitGameState::Board&, MovementData& movement_data)
+uint64_t MoveValidationSystem::knightValidation(const InitGameState::Board& board, MovementData& movement_data, TracePathComponent& path_data, ExtractRayTypeInfo::ray_type)
 {
 	uint64_t knight_mask = 0;
 
@@ -310,106 +349,301 @@ uint64_t MoveValidationSystem::knightValidation(InitGameState::Board&, MovementD
 	constexpr uint64_t NOT_G_MASK = 0xbfbfbfbfbfbfbfbf;
 	constexpr uint64_t NOT_H_MASK = 0x7f7f7f7f7f7f7f7f;
 
+	const uint64_t PICKED_BIT_MASK = (1ULL << movement_data.picked_square_idx);
+
 	constexpr int UP_RIGHT = 17;
 	constexpr int RIGHT_UP = 10;
 	constexpr int RIGHT_DOWN = 6;
 	constexpr int DOWN_RIGHT = 15;
 
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_H_MASK) << UP_RIGHT & ~movement_data.allies;
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_G_MASK & NOT_H_MASK) << RIGHT_UP & ~movement_data.allies;
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_G_MASK & NOT_H_MASK) >> RIGHT_DOWN & ~movement_data.allies;
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_H_MASK) >> DOWN_RIGHT & ~movement_data.allies;
-
+	knight_mask |= (PICKED_BIT_MASK & NOT_H_MASK)			   << UP_RIGHT   & ~movement_data.allies;
+	knight_mask |= (PICKED_BIT_MASK & NOT_G_MASK & NOT_H_MASK) << RIGHT_UP   & ~movement_data.allies;
+	knight_mask |= (PICKED_BIT_MASK & NOT_G_MASK & NOT_H_MASK) >> RIGHT_DOWN & ~movement_data.allies;
+	knight_mask |= (PICKED_BIT_MASK & NOT_H_MASK)			   >> DOWN_RIGHT & ~movement_data.allies;
+		
 	constexpr int DOWN_LEFT = 17;
 	constexpr int LEFT_DOWN = 10;
 	constexpr int LEFT_UP = 6;
 	constexpr int UP_LEFT = 15;
 
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_A_MASK) >> DOWN_LEFT & ~movement_data.allies;
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_B_MASK & NOT_A_MASK) >> LEFT_DOWN & ~movement_data.allies;
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_B_MASK & NOT_A_MASK) << LEFT_UP & ~movement_data.allies;
-	knight_mask |= ((1ULL << movement_data.picked_square_idx) & NOT_A_MASK) << UP_LEFT & ~movement_data.allies;
+	knight_mask |= (PICKED_BIT_MASK & NOT_A_MASK)			   >> DOWN_LEFT & ~movement_data.allies;
+	knight_mask |= (PICKED_BIT_MASK & NOT_B_MASK & NOT_A_MASK) >> LEFT_DOWN & ~movement_data.allies;
+	knight_mask |= (PICKED_BIT_MASK & NOT_B_MASK & NOT_A_MASK) << LEFT_UP   & ~movement_data.allies;
+	knight_mask |= (PICKED_BIT_MASK & NOT_A_MASK)			   << UP_LEFT   & ~movement_data.allies;
+
+	knight_mask = excludeKingOrigin(board, knight_mask);
 
 	return knight_mask;
 }
 
-uint64_t MoveValidationSystem::rookValidation(InitGameState::Board&, MovementData& movement_data)
+inline uint64_t MoveValidationSystem::excludeKingOrigin(const InitGameState::Board& board, uint64_t attack)
+{
+	/*
+	* Used for excluding king origin for pawns and knights
+	*/
+
+	using enum pieceInfo::piece;
+
+	const uint64_t NO_KINGS_MASK = ~(board.pieces[white_king] | board.pieces[black_king]);
+	attack &= NO_KINGS_MASK;
+
+	return attack;
+}
+
+inline MoveValidationSystem::MaskComponent MoveValidationSystem::excludeKingOrigin(const InitGameState::Board& board, uint64_t attack_ray, TracePathComponent& path_data)
+{
+	/*
+	* Used for excluding king origin for sliding pieces
+	* function returns both the ray which is used for finding valid moves for sliding pieces
+	* as well as defend_squares_mask, that returns exact squares which can be blocked by a defending piece
+	* for the purpose of evaluating check mate eligibility
+	*/
+
+	using enum pieceInfo::piece;
+
+	//remove the king origin from the MASK, so the king cannot ever be overtaken
+	const uint64_t NO_KINGS_MASK = ~(board.pieces[white_king] | board.pieces[black_king]);
+	attack_ray &= NO_KINGS_MASK;
+
+	//add king origin for evaluating which sliding piece's ray is the one attacking
+	const uint64_t DEFEND_SQUARES_MASK = attack_ray | path_data.attacker_origin;
+
+	return {attack_ray, DEFEND_SQUARES_MASK};
+}
+
+MoveValidationSystem::ValidatedMaskComponent MoveValidationSystem::captureRayHelper(const InitGameState::Board& board, MovementData& movement_data, const uint64_t dir, const uint64_t transposition, TracePathComponent& path_data)
+{
+	/*
+	* when the objective is validating legal moves the function obtains those valid moves for a given ray.
+	* However when the validation function was sub-opted for the purpose of finding the ray between pieces,
+	* it does both. Granted the path_flag has to be enabled for that exact purpose within tracepath state
+	*/
+
+	uint64_t attack_ray = universalRay(movement_data, dir, transposition);
+
+	//add current picked square for confirming which exact ray of a given slider is attacking the king
+	const uint64_t RAY_AND_ORIGIN = attack_ray | (1ULL << movement_data.picked_square_idx);
+	const uint64_t IF_PATH_STATE_NOT_EMPTY = -(path_data.king_and_attacker > 0);
+	const uint64_t IF_PATH = -( (RAY_AND_ORIGIN & path_data.king_and_attacker) == path_data.king_and_attacker);
+	const uint64_t IF_PATH_IDENTIFIED = IF_PATH_STATE_NOT_EMPTY & IF_PATH;
+
+	//remove the king origin from the ray, so the king cannot ever be overtaken
+	MaskComponent mask_bundle;
+	mask_bundle = excludeKingOrigin(board, attack_ray, path_data);
+	const uint64_t DEFEND_SQUARES_MASK = mask_bundle.defend_squares_mask;
+
+	//obtain the exact ray, threatening the king, and add it to state
+	const uint64_t CHECK_RAY = (IF_PATH_IDENTIFIED & DEFEND_SQUARES_MASK);
+
+	//return the ray for validation functions to execute
+	return {mask_bundle.attack_ray, CHECK_RAY};
+}
+
+inline void MoveValidationSystem::extractRays(const InitGameState::Board& board, MovementData& movement_data, ValidatedMaskComponent& validated_mask_bundle, uint64_t dir, uint64_t transposition, TracePathComponent& path_data)
+{
+	ValidatedMaskComponent sim_val_mask_bundle;
+
+	sim_val_mask_bundle = captureRayHelper(board, movement_data, dir, transposition, path_data);
+	validated_mask_bundle.attack_ray |= sim_val_mask_bundle.attack_ray;
+	validated_mask_bundle.check_ray  |= sim_val_mask_bundle.check_ray;
+}
+
+uint64_t MoveValidationSystem::rookValidation(const InitGameState::Board& board, MovementData& movement_data, TracePathComponent& path_data, ExtractRayTypeInfo::ray_type ray_type)
 {
 	using enum rayTranspositionInfo::rays;
 	using enum rayDirectionInfo::rays;
 
-	uint64_t rook_mask = 0;
+	ValidatedMaskComponent validated_mask_bundle;
 
-	rook_mask |= universalRay(movement_data, north, vertical);	//north
-	rook_mask |= universalRay(movement_data, east, horizontal);	//east
-	rook_mask |= universalRay(movement_data, south, vertical);	//south
-	rook_mask |= universalRay(movement_data, west, horizontal);	//west
+	extractRays(board, movement_data, validated_mask_bundle, north, vertical,   path_data);	//north
+	extractRays(board, movement_data, validated_mask_bundle, east,  horizontal, path_data);	//east
+	extractRays(board, movement_data, validated_mask_bundle, south, vertical,   path_data);	//south
+	extractRays(board, movement_data, validated_mask_bundle, west,  horizontal, path_data);	//west
 
-	return rook_mask;
+	//return a typical attack ray for a given piece, or the one which may be imposing a check
+	const uint64_t RAY = pickRayType(validated_mask_bundle, ray_type);
+
+	//adjust the check ray data
+	//(!!! I think mutating state here won't cause issues, even though it's brittle.
+	//I'm doing it since only sliding pieces require path data mutation. And I don't 
+	//want to pollute my code with empty structs invocations elsewhere,
+	//when instantiating the validation function. If anything were to break down the line
+	//this might be the culprit, as it goes against Data Oriented Design principles !!!)
+	path_data.check_ray = validated_mask_bundle.check_ray;
+
+	return RAY;
 }
 
-uint64_t MoveValidationSystem::bishopValidation(InitGameState::Board&, MovementData& movement_data)
+uint64_t MoveValidationSystem::bishopValidation(const InitGameState::Board& board, MovementData& movement_data, TracePathComponent& path_data, ExtractRayTypeInfo::ray_type ray_type)
 {
 	using enum rayTranspositionInfo::rays;
 	using enum rayDirectionInfo::rays;
 
-	uint64_t bishop_mask = 0;
+	ValidatedMaskComponent validated_mask_bundle;
 
-	bishop_mask |= universalRay(movement_data, north_east, diagonal);		//north-east
-	bishop_mask |= universalRay(movement_data, south_east, anti_diagonal);	//south-east
-	bishop_mask |= universalRay(movement_data, south_west, diagonal);		//south-west
-	bishop_mask |= universalRay(movement_data, north_west, anti_diagonal);	//north-west
+	extractRays(board, movement_data, validated_mask_bundle, north_east, diagonal,	    path_data);	//north-east
+	extractRays(board, movement_data, validated_mask_bundle, south_east, anti_diagonal, path_data);	//south-east
+	extractRays(board, movement_data, validated_mask_bundle, south_west, diagonal,		path_data);	//south-west
+	extractRays(board, movement_data, validated_mask_bundle, north_west, anti_diagonal, path_data);	//north-west
 
-	return bishop_mask;
+	//return a typical attack ray for a given piece, or the one which may be imposing a check
+	const uint64_t RAY = pickRayType(validated_mask_bundle, ray_type);
+
+	//adjust the check ray data
+	//(!!! I think mutating state here won't cause issues, even though it's brittle.
+	//I'm doing it since only sliding pieces require path data mutation. And I don't 
+	//want to pollute my code with empty structs invocations elsewhere,
+	//when instantiating the validation function. If anything were to break down the line
+	//this might be the culprit, as it goes against Data Oriented Design principles !!!)
+	path_data.check_ray = validated_mask_bundle.check_ray;
+
+	return RAY;
 }
 
-uint64_t MoveValidationSystem::queenValidation(InitGameState::Board&, MovementData& movement_data)
+uint64_t MoveValidationSystem::queenValidation(const InitGameState::Board& board, MovementData& movement_data, TracePathComponent& path_data, ExtractRayTypeInfo::ray_type ray_type)
 {
 	using enum rayTranspositionInfo::rays;
 	using enum rayDirectionInfo::rays;
 
-	uint64_t queen_mask = 0;
+	ValidatedMaskComponent validated_mask_bundle;
 
-	queen_mask |= universalRay(movement_data, north, vertical);				//north
-	queen_mask |= universalRay(movement_data, north_east, diagonal);		//north-east
-	queen_mask |= universalRay(movement_data, east, horizontal);			//east
-	queen_mask |= universalRay(movement_data, south_east, anti_diagonal);	//south-east
-	queen_mask |= universalRay(movement_data, south, vertical);				//south
-	queen_mask |= universalRay(movement_data, south_west, diagonal);		//south-west
-	queen_mask |= universalRay(movement_data, west, horizontal);			//west
-	queen_mask |= universalRay(movement_data, north_west, anti_diagonal);	//north-west
+	extractRays(board, movement_data, validated_mask_bundle, north,		 vertical,		path_data);	//north
+	extractRays(board, movement_data, validated_mask_bundle, north_east, diagonal,		path_data);	//north-east
+	extractRays(board, movement_data, validated_mask_bundle, east,		 horizontal,	path_data);	//east
+	extractRays(board, movement_data, validated_mask_bundle, south_east, anti_diagonal, path_data);	//south-east
+	extractRays(board, movement_data, validated_mask_bundle, south,		 vertical,		path_data);	//south
+	extractRays(board, movement_data, validated_mask_bundle, south_west, diagonal,		path_data);	//south-west
+	extractRays(board, movement_data, validated_mask_bundle, west,		 horizontal,	path_data);	//west
+	extractRays(board, movement_data, validated_mask_bundle, north_west, anti_diagonal, path_data);	//north-west
 
-	return queen_mask;
+	//return a typical attack ray for a given piece, or the one which may be imposing a check
+	const uint64_t RAY = pickRayType(validated_mask_bundle, ray_type);
+
+	//adjust the check ray data
+	//(!!! I think mutating state here won't cause issues, even though it's brittle.
+	//I'm doing it since only sliding pieces require path data mutation. And I don't 
+	//want to pollute my code with empty structs invocations elsewhere,
+	//when instantiating the validation function. If anything were to break down the line
+	//this might be the culprit, as it goes against Data Oriented Design principles !!!)
+	path_data.check_ray = validated_mask_bundle.check_ray;
+
+	return RAY;
 }
 
-uint64_t MoveValidationSystem::kingValidation(InitGameState::Board&, MovementData& movement_data)
+inline uint64_t MoveValidationSystem::pickRayType(const ValidatedMaskComponent& validated_mask_bundle, ExtractRayTypeInfo::ray_type ray_type)
 {
+	//calculates whether we're extracting a regular attack ray or a ray that imposes a check.
+	//extraction is done from a struct
+
+	const uint64_t SEL_RAY_TYPE = -(ray_type);
+	const uint64_t ATTACK_RAY = validated_mask_bundle.attack_ray;
+	const uint64_t CHECK_RAY  = validated_mask_bundle.check_ray;
+
+	return (~SEL_RAY_TYPE & ATTACK_RAY) | (SEL_RAY_TYPE & CHECK_RAY);
+}
+
+uint64_t MoveValidationSystem::kingValidation(const InitGameState::Board& board, MovementData& movement_data, TracePathComponent& path_data, ExtractRayTypeInfo::ray_type)
+{
+	using enum pieceInfo::piece;
+	using enum kingMoveIndicies::move;
+
+	constexpr int UP = 8;
+	constexpr int DOWN = -8;
+	constexpr int RIGHT = 1;
+	constexpr int LEFT = -1;
+	
+	constexpr int UP_RIGHT = 9;
+	constexpr int UP_LEFT = 7;
+	constexpr int DOWN_LEFT = -9;
+	constexpr int DOWN_RIGHT = -7;
+
+	constexpr int ALL_SHIFT_DIRS[] = 
+	{
+		UP, DOWN, RIGHT, LEFT,
+		UP_RIGHT, UP_LEFT, DOWN_LEFT, DOWN_RIGHT
+	};
+
+	const uint64_t PICKED_BIT_MASK = 1ULL << movement_data.picked_square_idx;
+
+	constexpr uint64_t NOT_A_FILE = ~0x101010101010101ULL;
+	constexpr uint64_t NOT_H_FILE = ~0x8080808080808080ULL;
+
+	const uint64_t CLIPPED_MOVED_BITS_MASK[] =
+	{
+		(PICKED_BIT_MASK << UP),
+		(PICKED_BIT_MASK >> -DOWN),
+		(PICKED_BIT_MASK << RIGHT)	     & NOT_A_FILE,
+		(PICKED_BIT_MASK >> -LEFT)		 & NOT_H_FILE,
+
+		(PICKED_BIT_MASK << UP_RIGHT)    & NOT_A_FILE,
+		(PICKED_BIT_MASK << UP_LEFT)     & NOT_H_FILE,
+		(PICKED_BIT_MASK >> -DOWN_LEFT)  & NOT_H_FILE,
+		(PICKED_BIT_MASK >> -DOWN_RIGHT) & NOT_A_FILE
+	};
+	
+	/*
+	 * here a geometric series sum is used to compute a 3x3 buffer on the spot,
+	 * this buffer is responsible for preventing two enemy kings moving to adjacent squares
+	 * this calculation has to run 8 times to construct masks for all possible directions the king can be moved to.
+	 * shifting the already computed mask causes issues with
+	 ** the mathematical formula was written by AI. Eventually I'll learn more about deriving mathematical series on my own,
+	 ** but for now this works, since I understand the reasoning for why I choose this approach.
+	*/
+	
+	constexpr int ALL_DIRECTIONS = 8;
+	uint64_t ENEMY_KING_ADJACENT[8] = {};
+	
+	const uint64_t ENEMY_KING = movement_data.enemies & (board.pieces[white_king] | board.pieces[black_king]);
+	
+	constexpr uint64_t H_FILE_MASK = 0x8080808080808080;
+	constexpr uint64_t A_FILE_MASK = 0x101010101010101;
+	const uint64_t IF_A_FILE_OVERLAP = -( (A_FILE_MASK & (1ULL << movement_data.placement_square_idx) ) > 0);
+	const uint64_t IF_H_FILE_OVERLAP = -( (H_FILE_MASK & (1ULL << movement_data.placement_square_idx) ) > 0);
+
+	//start of the mathematical formula for a 3x3 king buffer, adjusted by placement and direction
+	const int TARGET_SQUARE_IDX = movement_data.picked_square_idx - 9;
+
+	for (int i = 0; i < ALL_DIRECTIONS; i++) 
+	{
+		int DIRECTED_SQUARE_IDX = TARGET_SQUARE_IDX + ALL_SHIFT_DIRS[i];
+
+		const uint64_t CRUDE_KING_BUFFER_MASK = (DIRECTED_SQUARE_IDX >= 0) ? //changed TARGET_SQUARE_IDX to DIRECTED_SQUARE_IDX
+			(  7ULL <<  DIRECTED_SQUARE_IDX       ) * 65793ULL			 : //prevents upper bound mask from clipping
+			( (7ULL << (DIRECTED_SQUARE_IDX += 8) ) * 65793ULL) >> 17;	   //prevents lower bound mask from clipping
+		
+		const uint64_t KING_BUFFER_MASK = (IF_A_FILE_OVERLAP  & ~H_FILE_MASK	   & CRUDE_KING_BUFFER_MASK) |
+									   	  (IF_H_FILE_OVERLAP  & ~A_FILE_MASK	   & CRUDE_KING_BUFFER_MASK) |
+										  (~IF_A_FILE_OVERLAP & ~IF_H_FILE_OVERLAP & CRUDE_KING_BUFFER_MASK)
+		;
+
+		//append conditional mask to static array
+		ENEMY_KING_ADJACENT[i] = -( (KING_BUFFER_MASK & ENEMY_KING) > 0);
+	};
+
+	//possible moves, no enemy king in sight, no overtaking allies
 	uint64_t king_mask = 0;
+	king_mask |= CLIPPED_MOVED_BITS_MASK[up]		 & ~ENEMY_KING_ADJACENT[up]			& ~movement_data.allies;
+	king_mask |= CLIPPED_MOVED_BITS_MASK[down]		 & ~ENEMY_KING_ADJACENT[down]		& ~movement_data.allies;
+	king_mask |= CLIPPED_MOVED_BITS_MASK[right]		 & ~ENEMY_KING_ADJACENT[right]		& ~movement_data.allies;
+	king_mask |= CLIPPED_MOVED_BITS_MASK[left]		 & ~ENEMY_KING_ADJACENT[left]		& ~movement_data.allies;
 
-	constexpr uint64_t NOT_A_FILE = ~0x1010101010101010;
-	constexpr uint64_t NOT_H_FILE = ~0x8080808080808080;
-
-	king_mask |= ((1ULL << movement_data.picked_square_idx) << 8) & ~movement_data.allies;
-	king_mask |= ((1ULL << movement_data.picked_square_idx) >> 8) & ~movement_data.allies;
-	king_mask |= ((1ULL << movement_data.picked_square_idx) << 1) & NOT_A_FILE & ~movement_data.allies;
-	king_mask |= ((1ULL << movement_data.picked_square_idx) >> 1) & NOT_H_FILE & ~movement_data.allies;
-
-	king_mask |= (((1ULL << movement_data.picked_square_idx) << 9) & NOT_A_FILE) & ~movement_data.allies;
-	king_mask |= (((1ULL << movement_data.picked_square_idx) << 7) & NOT_H_FILE) & ~movement_data.allies;
-	king_mask |= (((1ULL << movement_data.picked_square_idx) >> 9) & NOT_H_FILE) & ~movement_data.allies;
-	king_mask |= (((1ULL << movement_data.picked_square_idx) >> 7) & NOT_A_FILE) & ~movement_data.allies;
+	king_mask |= CLIPPED_MOVED_BITS_MASK[up_right]   & ~ENEMY_KING_ADJACENT[up_right]	& ~movement_data.allies;
+	king_mask |= CLIPPED_MOVED_BITS_MASK[up_left]    & ~ENEMY_KING_ADJACENT[up_left]	& ~movement_data.allies;
+	king_mask |= CLIPPED_MOVED_BITS_MASK[down_left]  & ~ENEMY_KING_ADJACENT[down_left]  & ~movement_data.allies;
+	king_mask |= CLIPPED_MOVED_BITS_MASK[down_right] & ~ENEMY_KING_ADJACENT[down_right] & ~movement_data.allies;
 
 	return king_mask;
+
 }
 
-uint64_t MoveValidationSystem::validator(InitGameState::Board& board, MovementData& movement_data)
+uint64_t MoveValidationSystem::validator(const InitGameState::Board& board, MovementData& movement_data, TracePathComponent& path_data, ExtractRayTypeInfo::ray_type ray_type)
 {
 	//this is how you define the type of the jump table. it's defining the type of the function pointer
 	//uint64_t specifies the return value (can be empty if void), (*) is the placeholder of the function pointer
 	//(here it's only * because the access system is being handled via the "using" keyword),
 	//and the second parentheses contains function parameters, that have to be uniform for the jump table to work
 	//for the sake of determinism
-	using a_validator = uint64_t(*)(InitGameState::Board&, MovementData&);
+	using a_validator = uint64_t(*)(const InitGameState::Board&, MovementData&, TracePathComponent&, ExtractRayTypeInfo::ray_type);
 
 	//array of function pointers
 	//static keyword in front of a data type enforces this table belongs only to this source file
@@ -425,13 +659,16 @@ uint64_t MoveValidationSystem::validator(InitGameState::Board& board, MovementDa
 		&MoveValidationSystem::kingValidation
 	};
 
+	constexpr int COLOR_CORRECTION = 6;
+	constexpr int FIRST_PIECE = 0;
+	constexpr int LAST_PIECE = 12;
 	uint64_t valid_moves = 0;
 
-	if (movement_data.picked_piece_type < 12 && movement_data.picked_piece_type >= 0) {
+	if (movement_data.picked_piece_type < LAST_PIECE && movement_data.picked_piece_type >= FIRST_PIECE) {
 		//accesses the function pointer via index, then execute it with the provided arguments
 		//modulo six accounts for figure color correction, as their legal moves don't differ based on color
 		///however I'm counting them separately as this fulfills another architectural purpose
-		valid_moves = jump_table[movement_data.picked_piece_type % 6](board, movement_data);
+		valid_moves = jump_table[movement_data.picked_piece_type % COLOR_CORRECTION](board, movement_data, path_data, ray_type);
 	}
 
 	return valid_moves;
