@@ -71,7 +71,7 @@ Build (Ctrl+Shift+B) and run (Ctrl+F5).
 ## Option 2: Command Line (GCC / Clang)
 Run the following command in the project root directory:
 
-g++ -std=c++20 -O3 *.cpp -o InteractiveChessApp && ./InteractiveChessApp
+```g++ -std=c++20 -O3 *.cpp -o InteractiveChessApp && ./InteractiveChessApp```
 
 # How to Play
 Upon execution, the initial board state will be drawn to the console.
