@@ -14,10 +14,20 @@
 #include "king_move_indicies.h"
 #include "trace_path_component.h"
 #include "extract_ray_type_info.h"
+#include "king_dir_indices_info.h"
 
 class MoveValidationSystem {
 public:
+
+	struct KingValidationBundle
+	{
+		uint64_t KING_DIR_MASKS[8]{};
+		uint64_t king_mask;
+	};
+
 	static uint64_t validator(const InitGameState::Board&, MovementData&, TracePathComponent&, ExtractRayTypeInfo::ray_type);
+	static KingValidationBundle kingMoves(const MovementData&); //determines where the king can move. used for both checkmate validation and king movement validation
+	static uint64_t kingValidation(const InitGameState::Board&, MovementData&, TracePathComponent&, ExtractRayTypeInfo::ray_type); //adjusts valid moves based on kings' proximity
 private:
 
 	struct MaskComponent
@@ -43,7 +53,7 @@ private:
 	static uint64_t rookValidation(const InitGameState::Board&, MovementData&, TracePathComponent&, ExtractRayTypeInfo::ray_type);
 	static uint64_t bishopValidation(const InitGameState::Board&, MovementData&, TracePathComponent&, ExtractRayTypeInfo::ray_type);
 	static uint64_t queenValidation(const InitGameState::Board&, MovementData&, TracePathComponent&, ExtractRayTypeInfo::ray_type);
-	static uint64_t kingValidation(const InitGameState::Board&, MovementData&, TracePathComponent&, ExtractRayTypeInfo::ray_type);
+	//static uint64_t kingValidation(const InitGameState::Board&, MovementData&, TracePathComponent&, ExtractRayTypeInfo::ray_type);
 	
 	static inline uint64_t excludeKingOrigin(const InitGameState::Board&, uint64_t);
 	static inline MaskComponent excludeKingOrigin(const InitGameState::Board&, uint64_t, TracePathComponent&);

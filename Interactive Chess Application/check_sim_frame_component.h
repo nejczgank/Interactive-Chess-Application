@@ -5,7 +5,7 @@
 
 struct CheckSimFrameComponent
 {
-	InitGameState::Board new_board;
-	MovementData new_movement_data;
-	PositionalEvalComponent new_pos_eval;
+	InitGameState::Board new_board{};
+	MovementData new_movement_data{};
+	PositionalEvalComponent new_pos_eval{};
 };

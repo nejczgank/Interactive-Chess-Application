@@ -542,11 +542,71 @@ inline uint64_t MoveValidationSystem::pickRayType(const ValidatedMaskComponent& 
 	return (~SEL_RAY_TYPE & ATTACK_RAY) | (SEL_RAY_TYPE & CHECK_RAY);
 }
 
+MoveValidationSystem::KingValidationBundle MoveValidationSystem::kingMoves(const MovementData& movement_data)
+{
+	//ADD MIDDLE BIT INTO HERE
+
+	using enum pieceInfo::piece;
+	using enum kingMoveIndicies::move;
+	using enum KingDirIndicesInfo::king_dirs;
+
+	//constexpr int UP = 8;
+	//constexpr int DOWN = -8;
+	//constexpr int RIGHT = 1;
+	//constexpr int LEFT = -1;
+
+	//constexpr int UP_RIGHT = 9;
+	//constexpr int UP_LEFT = 7;
+	//constexpr int DOWN_LEFT = -9;
+	//constexpr int DOWN_RIGHT = -7;
+
+	const uint64_t PICKED_BIT_MASK = 1ULL << movement_data.picked_square_idx;
+
+	constexpr uint64_t NOT_A_FILE = ~0x101010101010101ULL;
+	constexpr uint64_t NOT_H_FILE = ~0x8080808080808080ULL;
+
+	const uint64_t CLIPPED_MOVED_BITS_MASK[] =
+	{
+		(PICKED_BIT_MASK << UP_DIR),
+		(PICKED_BIT_MASK >> -DOWN_DIR),
+		(PICKED_BIT_MASK << RIGHT_DIR) & NOT_A_FILE,
+		(PICKED_BIT_MASK >> -LEFT_DIR) & NOT_H_FILE,
+
+		(PICKED_BIT_MASK << UP_RIGHT_DIR) & NOT_A_FILE,
+		(PICKED_BIT_MASK << UP_LEFT_DIR) & NOT_H_FILE,
+		(PICKED_BIT_MASK >> -DOWN_LEFT_DIR) & NOT_H_FILE,
+		(PICKED_BIT_MASK >> -DOWN_RIGHT_DIR) & NOT_A_FILE
+	};
+	
+	KingValidationBundle king_validation_bundle{};
+
+	auto addValidatedDir = [&king_validation_bundle, &CLIPPED_MOVED_BITS_MASK, &movement_data](kingMoveIndicies::move dir, int i)
+	{
+		king_validation_bundle.KING_DIR_MASKS[i] = CLIPPED_MOVED_BITS_MASK[dir] & ~movement_data.allies;
+		king_validation_bundle.king_mask		|= CLIPPED_MOVED_BITS_MASK[dir] & ~movement_data.allies;
+	};
+	
+	addValidatedDir(up,			0);
+	addValidatedDir(down,		1);
+	addValidatedDir(right,		2);
+	addValidatedDir(left,		3);
+	addValidatedDir(up_right,	4);
+	addValidatedDir(up_left,	5);
+	addValidatedDir(down_left,	6);
+	addValidatedDir(down_right, 7);
+
+	king_validation_bundle.king_mask |= PICKED_BIT_MASK;
+
+	return king_validation_bundle;
+}
+
 uint64_t MoveValidationSystem::kingValidation(const InitGameState::Board& board, MovementData& movement_data, TracePathComponent& path_data, ExtractRayTypeInfo::ray_type)
 {
 	using enum pieceInfo::piece;
 	using enum kingMoveIndicies::move;
+	using enum KingDirIndicesInfo::king_dirs;
 
+	/*
 	constexpr int UP = 8;
 	constexpr int DOWN = -8;
 	constexpr int RIGHT = 1;
@@ -556,13 +616,17 @@ uint64_t MoveValidationSystem::kingValidation(const InitGameState::Board& board,
 	constexpr int UP_LEFT = 7;
 	constexpr int DOWN_LEFT = -9;
 	constexpr int DOWN_RIGHT = -7;
+	*/
+	KingValidationBundle king_validation_bundle = kingMoves(movement_data);
+	auto& kVB = king_validation_bundle;
 
 	constexpr int ALL_SHIFT_DIRS[] = 
 	{
-		UP, DOWN, RIGHT, LEFT,
-		UP_RIGHT, UP_LEFT, DOWN_LEFT, DOWN_RIGHT
+		UP_DIR, DOWN_DIR, RIGHT_DIR, LEFT_DIR,
+		UP_RIGHT_DIR, UP_LEFT_DIR, DOWN_LEFT_DIR, DOWN_RIGHT_DIR
 	};
 
+	/*
 	const uint64_t PICKED_BIT_MASK = 1ULL << movement_data.picked_square_idx;
 
 	constexpr uint64_t NOT_A_FILE = ~0x101010101010101ULL;
@@ -570,16 +634,16 @@ uint64_t MoveValidationSystem::kingValidation(const InitGameState::Board& board,
 
 	const uint64_t CLIPPED_MOVED_BITS_MASK[] =
 	{
-		(PICKED_BIT_MASK << UP),
-		(PICKED_BIT_MASK >> -DOWN),
-		(PICKED_BIT_MASK << RIGHT)	     & NOT_A_FILE,
-		(PICKED_BIT_MASK >> -LEFT)		 & NOT_H_FILE,
+		(PICKED_BIT_MASK << UP_DIR),
+		(PICKED_BIT_MASK >> -DOWN_DIR),
+		(PICKED_BIT_MASK << RIGHT_DIR)	     & NOT_A_FILE,
+		(PICKED_BIT_MASK >> -LEFT_DIR)		 & NOT_H_FILE,
 
-		(PICKED_BIT_MASK << UP_RIGHT)    & NOT_A_FILE,
-		(PICKED_BIT_MASK << UP_LEFT)     & NOT_H_FILE,
-		(PICKED_BIT_MASK >> -DOWN_LEFT)  & NOT_H_FILE,
-		(PICKED_BIT_MASK >> -DOWN_RIGHT) & NOT_A_FILE
-	};
+		(PICKED_BIT_MASK << UP_RIGHT_DIR)    & NOT_A_FILE,
+		(PICKED_BIT_MASK << UP_LEFT_DIR)     & NOT_H_FILE,
+		(PICKED_BIT_MASK >> -DOWN_LEFT_DIR)  & NOT_H_FILE,
+		(PICKED_BIT_MASK >> -DOWN_RIGHT_DIR) & NOT_A_FILE
+	};*/
 	
 	/*
 	 * here a geometric series sum is used to compute a 3x3 buffer on the spot,
@@ -622,7 +686,7 @@ uint64_t MoveValidationSystem::kingValidation(const InitGameState::Board& board,
 
 	//possible moves, no enemy king in sight, no overtaking allies
 	uint64_t king_mask = 0;
-	king_mask |= CLIPPED_MOVED_BITS_MASK[up]		 & ~ENEMY_KING_ADJACENT[up]			& ~movement_data.allies;
+	/*king_mask |= CLIPPED_MOVED_BITS_MASK[up]		 & ~ENEMY_KING_ADJACENT[up]			& ~movement_data.allies;
 	king_mask |= CLIPPED_MOVED_BITS_MASK[down]		 & ~ENEMY_KING_ADJACENT[down]		& ~movement_data.allies;
 	king_mask |= CLIPPED_MOVED_BITS_MASK[right]		 & ~ENEMY_KING_ADJACENT[right]		& ~movement_data.allies;
 	king_mask |= CLIPPED_MOVED_BITS_MASK[left]		 & ~ENEMY_KING_ADJACENT[left]		& ~movement_data.allies;
@@ -630,7 +694,17 @@ uint64_t MoveValidationSystem::kingValidation(const InitGameState::Board& board,
 	king_mask |= CLIPPED_MOVED_BITS_MASK[up_right]   & ~ENEMY_KING_ADJACENT[up_right]	& ~movement_data.allies;
 	king_mask |= CLIPPED_MOVED_BITS_MASK[up_left]    & ~ENEMY_KING_ADJACENT[up_left]	& ~movement_data.allies;
 	king_mask |= CLIPPED_MOVED_BITS_MASK[down_left]  & ~ENEMY_KING_ADJACENT[down_left]  & ~movement_data.allies;
-	king_mask |= CLIPPED_MOVED_BITS_MASK[down_right] & ~ENEMY_KING_ADJACENT[down_right] & ~movement_data.allies;
+	king_mask |= CLIPPED_MOVED_BITS_MASK[down_right] & ~ENEMY_KING_ADJACENT[down_right] & ~movement_data.allies;*/
+
+	king_mask |= kVB.KING_DIR_MASKS[up]			& ~ENEMY_KING_ADJACENT[up];
+	king_mask |= kVB.KING_DIR_MASKS[down]		& ~ENEMY_KING_ADJACENT[down];
+	king_mask |= kVB.KING_DIR_MASKS[right]		& ~ENEMY_KING_ADJACENT[right];
+	king_mask |= kVB.KING_DIR_MASKS[left]		& ~ENEMY_KING_ADJACENT[left];
+
+	king_mask |= kVB.KING_DIR_MASKS[up_right]	& ~ENEMY_KING_ADJACENT[up_right];
+	king_mask |= kVB.KING_DIR_MASKS[up_left]	& ~ENEMY_KING_ADJACENT[up_left];
+	king_mask |= kVB.KING_DIR_MASKS[down_left]	& ~ENEMY_KING_ADJACENT[down_left];
+	king_mask |= kVB.KING_DIR_MASKS[down_right] & ~ENEMY_KING_ADJACENT[down_right];
 
 	return king_mask;
 

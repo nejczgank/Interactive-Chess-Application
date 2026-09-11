@@ -104,3 +104,15 @@ if properly portrays control flow for me
 3. GAME STATE BITBOARDS (Type 1: Bitmasks representing actual piece placements)
    -> Prefix: 'bb_'
    -> Examples: bb_enemies, bb_allies, bb_pawn_attacks
+
+
+LAMBDAS:
+auto lambdaName = [ capture ]( parameters ){ body };
+- capture : obtains local variables
+  there are a few types of captures available:
+  - [&var]    -> by reference. enables direct modification
+  - [var]     -> by value. it's read only by default
+  - [&] / [=] -> captures all locally scoped variables by reference or value
+  - !!! member variables of structs cannot be extracted separately
+- parameters : obtains variable parameters for figuring out the result
+- body : contains the necessary code
