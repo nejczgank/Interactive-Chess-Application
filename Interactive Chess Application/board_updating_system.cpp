@@ -11,7 +11,8 @@ uint64_t BoardUpdatingSystem::movementValidation(MovementData& movement_data, ui
 	return found_moves & (1ULL << movement_data.placement_square_idx);
 }
 
-void BoardUpdatingSystem::updateBoards(InitGameState::Board& board, MovementData& movement_data, PositionalEvalComponent& pos_eval_data, const uint64_t VALID_PIECE_PLACEMENT)
+//void BoardUpdatingSystem::updateBoards(InitGameState::Board& board, MovementData& movement_data, PositionalEvalComponent& pos_eval_data, const uint64_t VALID_PIECE_PLACEMENT, EnPassantStateComponent& en_passant_data)
+void BoardUpdatingSystem::updateBoards(GameStateContextComponent& game_state_ctx, uint64_t VALID_PIECE_PLACEMENT)
 {
 	/*
 	* Handles piece placement or replacement once a move is enacted and validated
@@ -21,6 +22,14 @@ void BoardUpdatingSystem::updateBoards(InitGameState::Board& board, MovementData
 	*   en-passant occurred
 	*/
 
+	auto& [board, movement_data, pos_eval_data, /*VALID_PIECE_PLACEMENT,*/ en_passant_data] = game_state_ctx;
+
+	//collect transient en-passant state for possible move reversals
+	//it doesn't make sense to un-compute en-passant
+	en_passant_data.passant_mask = movement_data.passant_mask;
+	en_passant_data.promoted_piece_type = movement_data.promoted_piece_type;
+	en_passant_data.passant_used = movement_data.passant_used;
+	
 	using enum occupancyInfo::occupancy;
 	using enum pieceInfo::piece;
 
@@ -252,4 +261,114 @@ void BoardUpdatingSystem::enPassantDetectionHelper(const InitGameState::Board& b
 	const uint64_t BLACK_PASSANT_MASK = IF_NEXT_TO_BLACK_PAWN & ADJUST_TO_BLACK_PASSANT_MASK;
 
 	movement_data.passant_mask = WHITE_PASSANT_MASK | BLACK_PASSANT_MASK;
+}
+
+//POSSIBLE SOLUTION
+//somehow flatten this using bitwise hacks instead of storing state
+//i could just things another way as described below:
+
+void BoardUpdatingSystem::reverseMovement(GameStateContextComponent& game_state_ctx, uint64_t VALID_PIECE_PLACEMENT)
+{
+	/*
+	* Reverts the board and movement data back to the state prior to updateBoards.
+	* Handles bitboard placement resets, piece restorations (normal + en-passant),
+	* promotion rollbacks, and positional evaluation updates.
+	*/
+
+	auto& [board, movement_data, pos_eval_data, /*VALID_PIECE_PLACEMENT,*/ en_passant_data] = game_state_ctx;
+
+	using enum occupancyInfo::occupancy;
+	using enum pieceInfo::piece;
+
+	constexpr int HORIZONTAL_MOVE = 8;
+	constexpr int NO_PIECE_FLAG = -1;
+
+	const uint64_t PICKED_BIT_MASK = (1ULL << movement_data.picked_square_idx);
+	const uint64_t PLACED_BIT_MASK = (1ULL << movement_data.placement_square_idx);
+
+	// -------------------------------------------------------------------
+	// 1. REVERT ATTACKING PIECE (Movement & Promotion Rollback)
+	// -------------------------------------------------------------------
+	const int HAS_PROMOTED = (en_passant_data.promoted_piece_type > 0);
+
+	// Clear the destination square for attacker
+	board.occupancy[movement_data.attacker_color] &= ~PLACED_BIT_MASK;
+
+	if (HAS_PROMOTED)
+	{
+		// Remove the promoted piece from placement square, restore pawn to picked square
+		board.pieces[en_passant_data.promoted_piece_type] &= ~PLACED_BIT_MASK;
+		board.pieces[movement_data.picked_piece_type] |= PICKED_BIT_MASK;
+	}
+	else
+	{
+		// Clear piece from placement square, restore to picked square
+		board.pieces[movement_data.picked_piece_type] &= ~PLACED_BIT_MASK;
+		board.pieces[movement_data.picked_piece_type] |= PICKED_BIT_MASK;
+	}
+
+	// Restore attacker occupancy on picked square
+	board.occupancy[movement_data.attacker_color] |= PICKED_BIT_MASK;
+
+	// Update allies tracking mask in movement_data
+	movement_data.allies &= ~PLACED_BIT_MASK;
+	movement_data.allies |= PICKED_BIT_MASK;
+
+
+	// -------------------------------------------------------------------
+	// 2. REVERT OVERTAKEN PIECE (Standard Captures & En-Passant)
+	// -------------------------------------------------------------------
+	if (en_passant_data.passant_used)
+	{
+		// En-passant pawn sits 1 rank behind/ahead of the destination placement square
+		const int IS_WHITE_ATTACKER = (movement_data.attacker_color == white);
+		const int IS_BLACK_ATTACKER = (movement_data.attacker_color == black);
+
+		const int DOWN = HORIZONTAL_MOVE * IS_WHITE_ATTACKER;
+		const int UP = HORIZONTAL_MOVE * IS_BLACK_ATTACKER;
+
+		const uint64_t IF_DOWN = -(DOWN > 0);
+		const uint64_t IF_UP = -(UP > 0);
+
+		const uint64_t SHIFTED_DOWN_MASK = VALID_PIECE_PLACEMENT >> DOWN;
+		const uint64_t SHIFTED_UP_MASK = VALID_PIECE_PLACEMENT << UP;
+
+		const uint64_t RESTORE_PAWN_MASK = (IF_DOWN & SHIFTED_DOWN_MASK) | (IF_UP & SHIFTED_UP_MASK);
+
+		const int PAWN_COLOR_IDX = (IS_WHITE_ATTACKER * black_pawn) + (IS_BLACK_ATTACKER * white_pawn);
+
+		// Restore defender occupancy and pawn piece bit
+		board.occupancy[movement_data.defender_color] |= RESTORE_PAWN_MASK;
+		board.pieces[PAWN_COLOR_IDX] |= RESTORE_PAWN_MASK;
+	}
+	else if (movement_data.placed_piece_type != NO_PIECE_FLAG)
+	{
+		// Standard capture restoration
+		board.occupancy[movement_data.defender_color] |= VALID_PIECE_PLACEMENT;
+		board.pieces[movement_data.placed_piece_type] |= VALID_PIECE_PLACEMENT;
+
+		// Restore enemy mask inside movement_data
+		movement_data.enemies |= PLACED_BIT_MASK;
+
+		// Revert material score calculation
+		int const MATERIAL_COUNTS[] = { 1, 3, 3, 5, 9, 0 };
+		int constexpr COLOR_CORRECTION = 6;
+
+		int const own_material_count = movement_data.attacker_color * MATERIAL_COUNTS[movement_data.placed_piece_type % COLOR_CORRECTION];
+		int const opposite_material_count = movement_data.defender_color * MATERIAL_COUNTS[movement_data.placed_piece_type % COLOR_CORRECTION];
+
+		// Subtracting material counts reverses the evaluation change
+		PositionalEvalSystem::materialCount(pos_eval_data, -own_material_count, -opposite_material_count);
+	}
+
+
+	// -------------------------------------------------------------------
+	// 3. RESTORE TRANSIENT STATE & TOTAL OCCUPANCY
+	// -------------------------------------------------------------------
+	movement_data.passant_mask = en_passant_data.passant_mask;
+	movement_data.passant_used = en_passant_data.passant_used;
+	movement_data.promoted_piece_type = en_passant_data.promoted_piece_type;
+
+	// Re-sync all occupancy bitboards
+	board.occupancy[all] = board.occupancy[white] | board.occupancy[black];
 }

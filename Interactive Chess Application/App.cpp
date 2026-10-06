@@ -12,9 +12,11 @@
 #include "eval_check_and_mate_system.h"
 #include "stalemate_data_component.h"
 #include "trace_path_component.h"
-#include "check_sim_frame_component.h"
 #include "king_subopt_info.h"
 #include "extract_ray_type_info.h"
+#include "en_passant_state_component.h"
+#include "game_state_component.h"
+#include "extract_path_component.h"
 
 int main() {
 
@@ -23,21 +25,36 @@ int main() {
 	using enum ExtractRayTypeInfo::ray_type;
 
 	//Initialize game state
-	InitGameState init_board;
+	InitGameState init_board{};
 	InitGameState::Board board = init_board.getInitBoardState();
 
 	//Initialize movement state,
-	MovementData movement_data;
+	MovementData movement_data{};
+
+	//En passant state component
+	EnPassantStateComponent en_passant_data{}; //used for move reversa l
 
 	//Create state for an AI instance
-	PositionalEvalComponent pos_eval;
+	PositionalEvalComponent pos_eval_data{};
 
 	//Initialize stalemate data
 	StalemateDataComponent stalemate_data{};
 
+	//Initialize validated placement bit information
+	uint64_t VALID_PIECE_PLACEMENT{};
+
+	//Introduce Context Parameter Object
+	GameStateContextComponent game_state_ctx{
+		board,
+		movement_data,
+		pos_eval_data,
+		//VALID_PIECE_PLACEMENT,
+		en_passant_data
+	};
+
 	//Initialize player turn state
-	bool white_turn = 1;
-	bool black_turn = 0;
+	bool white_turn = 0;//1;
+	bool black_turn = 1;//0;
 
 	while (true) {
 
@@ -66,11 +83,12 @@ int main() {
 		GetMovementInfoSystem::pickingInfo(board, movement_data);
 
 		//Validate legal moves for the picked piece
-		TracePathComponent probe_path_data;
-		const uint64_t VALID_MOVES = MoveValidationSystem::validator(board, movement_data, probe_path_data, attack_ray);
+		//TracePathComponent probe_path_data;
+		ExtractPathComponent probe_path_data{ {}, attack_ray };
+		const uint64_t VALID_MOVES = MoveValidationSystem::validator(board, movement_data, probe_path_data);
 
 		//Look if there are any legal moves, to enforce correctness
-		const uint64_t VALID_PIECE_PLACEMENT = BoardUpdatingSystem::movementValidation(movement_data, VALID_MOVES);
+		VALID_PIECE_PLACEMENT = BoardUpdatingSystem::movementValidation(movement_data, VALID_MOVES);
 
 		constexpr uint64_t NO_VALID_PLACEMENT = 0ULL;
 		if (VALID_PIECE_PLACEMENT == NO_VALID_PLACEMENT)
@@ -83,14 +101,14 @@ int main() {
 		GetMovementInfoSystem::placementInfo(board, movement_data);
 
 		//---------------//---------------//--------------- CHECK VALIDATION / GAME ENDING CONDITION ---------------//---------------//---------------//---------------
-
+		
 		//obtain an evaluation regarding checks or checkmates
-		const int check = EvalCheckAndMateSystem::checkmateHandler(board, movement_data, pos_eval, VALID_PIECE_PLACEMENT, stalemate_data);
+		const int check = EvalCheckAndMateSystem::checkmateHandler(game_state_ctx, VALID_PIECE_PLACEMENT);
 
 		//---------------//---------------//--------------- UPDATE STATE ---------------//---------------//---------------//---------------
 
 		//Update the board with new values
-		BoardUpdatingSystem::updateBoards(board, movement_data, pos_eval, VALID_PIECE_PLACEMENT);
+		BoardUpdatingSystem::updateBoards(game_state_ctx, VALID_PIECE_PLACEMENT);
 
 		//Update turn state
 		white_turn ^= 1;

@@ -12,14 +12,19 @@
 #include "board_updating_system.h"
 #include "stalemate_data_component.h"
 #include "trace_path_component.h"
-#include "check_sim_frame_component.h"
+#include "game_state_component.h"
 #include "king_subopt_info.h"
 #include "extract_ray_type_info.h"
+#include "en_passant_state_component.h"
+#include "game_state_component.h"
+#include "attack_eval_flags_info.h"
+#include "processed_square_info.h"
+#include "extract_path_component.h"
 
 class EvalCheckAndMateSystem {
 public:
 	//static void initState(InitGameState::Board&, MovementData&, const uint64_t, StalemateDataComponent&, const int, EvalCheckAndMateComponent&, TracePathComponent& path_data);
-	static int checkmateHandler(InitGameState::Board&, MovementData&, PositionalEvalComponent&, const uint64_t, StalemateDataComponent&);
+	static int checkmateHandler(GameStateContextComponent&, uint64_t);
 
 private:
 	//intermediary struct definitions
@@ -47,23 +52,40 @@ private:
 		bool IF_KING{};
 	};
 
-	//struct setters
-	static void setCheckSimFrame(InitGameState::Board&, MovementData&, PositionalEvalComponent&, CheckSimFrameComponent&);
-	static void setImpositionCheckColor(const MovementData&, CheckTypeColorComponent&, const uint64_t);
-	static void setDiscoverCheckColor(const MovementData&, CheckTypeColorComponent&, const uint64_t);
-	static void setCheckType(CheckTypeFrameComponent&, const CheckTypeColorComponent&, const CheckTypeColorComponent&, bool);
+	struct PickedPiecesComponent
+	{
+		int imposed_check_sq_idx{};
+		int discovered_check_sq_idx{};
+		int processed_sq_idx{};
+	};
 
-	//check
-	static int isKingCheck(CheckSimFrameComponent&, CheckTypeFrameComponent&, ExtractRayTypeInfo::ray_type);
-	static bool findCheck(const CheckSimFrameComponent&, CheckTypeColorComponent&, const bool, ExtractRayTypeInfo::ray_type);
-	static FoundOccupation findOccupation(const CheckSimFrameComponent&, const int, const int, bool);
-	static int findTargetIndex(const CheckSimFrameComponent&, const int(&)[6], bool);
-	static void isPieceAtkHelper(MovementData&, const CheckSimFrameComponent&, TracePathComponent&, bool&, const int, const int(&)[6], const int(&)[6], ExtractRayTypeInfo::ray_type);
-	static void isPieceKingAtkHelper(MovementData&, const CheckSimFrameComponent&, CheckTypeColorComponent&, TracePathComponent&, bool&, const int, const int(&)[6], const int(&)[6], ExtractRayTypeInfo::ray_type, const bool);
+	static inline void switchTeams(GameStateContextComponent&);
+	static int isSquareAttackedSimulated(GameStateContextComponent&, uint64_t, const AttackEvalFlagsInfo::eval_flags, const uint64_t, ExtractPathComponent& path_data);
+	static inline constexpr int getPieceIndex(const int, const int);
+	static PickedPiecesComponent findPickedPieces(const GameStateContextComponent&, const AttackEvalFlagsInfo::eval_flags, const uint64_t);
+	static int isSquareAttacked(GameStateContextComponent&, uint64_t, const int, ExtractPathComponent& path_data);
+	static int setNewPickedSquareIdx();
+	static bool isAnyPieceAttacking(GameStateContextComponent&, pieceInfo::piece piece, ExtractPathComponent& path_data, bool is_attack_found);
 
-	//checkmate
-	static TracePathComponent findAttackPathHelper(const CheckSimFrameComponent&, const CheckTypeColorComponent&, StalemateDataComponent&);
-	static bool isKingCheckmate(const CheckSimFrameComponent&, CheckTypeFrameComponent&, StalemateDataComponent&);
+	static int isKingCheckmate();
+
+	////struct setters
+	//static void setCheckSimFrame(InitGameState::Board&, MovementData&, PositionalEvalComponent&, CheckSimFrameComponent&);
+	//static void setImpositionCheckColor(const MovementData&, CheckTypeColorComponent&, const uint64_t);
+	//static void setDiscoverCheckColor(const MovementData&, CheckTypeColorComponent&, const uint64_t);
+	//static void setCheckType(CheckTypeFrameComponent&, const CheckTypeColorComponent&, const CheckTypeColorComponent&, bool);
+
+	////check
+	//static int isKingCheck(CheckSimFrameComponent&, CheckTypeFrameComponent&, ExtractRayTypeInfo::ray_type);
+	//static bool findCheck(const CheckSimFrameComponent&, CheckTypeColorComponent&, const bool, ExtractRayTypeInfo::ray_type);
+	//static FoundOccupation findOccupation(const CheckSimFrameComponent&, const int, const int, bool);
+	//static int findTargetIndex(const CheckSimFrameComponent&, const int(&)[6], bool);
+	//static void isPieceAtkHelper(MovementData&, const CheckSimFrameComponent&, TracePathComponent&, bool&, const int, const int(&)[6], const int(&)[6], ExtractRayTypeInfo::ray_type);
+	//static void isPieceKingAtkHelper(MovementData&, const CheckSimFrameComponent&, CheckTypeColorComponent&, TracePathComponent&, bool&, const int, const int(&)[6], const int(&)[6], ExtractRayTypeInfo::ray_type, const bool);
+
+	////checkmate
+	//static TracePathComponent findAttackPathHelper(const CheckSimFrameComponent&, const CheckTypeColorComponent&, StalemateDataComponent&);
+	//static bool isKingCheckmate(const CheckSimFrameComponent&, CheckTypeFrameComponent&, StalemateDataComponent&);
 
 	//checkmate
 	/*static bool isKingCheckmate(EvalCheckAndMateComponent&, StalemateDataComponent&);

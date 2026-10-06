@@ -261,9 +261,9 @@ uint64_t MoveValidationSystem::pawnValidation(const InitGameState::Board& board,
 
 	const uint64_t ADVANCE_MASK = 
 		(IF_INIT  & IF_WHITE & ~IF_OCCUPIED_FIRST & ~IF_OCCUPIED_INIT  & DOUBLE_WHITE_MOVE_MASK)  |
-		(~IF_INIT & IF_WHITE & ~IF_OCCUPIED_FIRST & REGULAR_WHITE_MOVE_MASK)					  |
+		(IF_WHITE & ~IF_OCCUPIED_FIRST & REGULAR_WHITE_MOVE_MASK)					  |
 		(IF_INIT  & IF_BLACK & ~IF_OCCUPIED_FIRST & ~IF_OCCUPIED_INIT  & DOUBLE_BLACK_MOVE_MASK)  |
-		(~IF_INIT & IF_BLACK & ~IF_OCCUPIED_FIRST & REGULAR_BLACK_MOVE_MASK)
+		(IF_BLACK & ~IF_OCCUPIED_FIRST & REGULAR_BLACK_MOVE_MASK)
 	;
 
 	uint64_t pawn_mask = 0;
@@ -710,8 +710,11 @@ uint64_t MoveValidationSystem::kingValidation(const InitGameState::Board& board,
 
 }
 
-uint64_t MoveValidationSystem::validator(const InitGameState::Board& board, MovementData& movement_data, TracePathComponent& path_data, ExtractRayTypeInfo::ray_type ray_type)
+uint64_t MoveValidationSystem::validator(const InitGameState::Board& board, MovementData& movement_data, ExtractPathComponent& path_data)//TracePathComponent& path_data, ExtractRayTypeInfo::ray_type ray_type)
 {
+	//unpack path_data
+	auto& [path_data_extracted, ray_type] = path_data;
+
 	//this is how you define the type of the jump table. it's defining the type of the function pointer
 	//uint64_t specifies the return value (can be empty if void), (*) is the placeholder of the function pointer
 	//(here it's only * because the access system is being handled via the "using" keyword),
@@ -742,7 +745,7 @@ uint64_t MoveValidationSystem::validator(const InitGameState::Board& board, Move
 		//accesses the function pointer via index, then execute it with the provided arguments
 		//modulo six accounts for figure color correction, as their legal moves don't differ based on color
 		///however I'm counting them separately as this fulfills another architectural purpose
-		valid_moves = jump_table[movement_data.picked_piece_type % COLOR_CORRECTION](board, movement_data, path_data, ray_type);
+		valid_moves = jump_table[movement_data.picked_piece_type % COLOR_CORRECTION](board, movement_data, path_data_extracted, ray_type);
 	}
 
 	return valid_moves;

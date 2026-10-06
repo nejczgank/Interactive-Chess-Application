@@ -8,11 +8,15 @@
 #include "positional_eval_component.h"
 #include "positional_eval_system.h"
 #include "piece_info.h"
+#include "en_passant_state_component.h"
+#include "game_state_component.h"
 
 class BoardUpdatingSystem {
 public:
 	static uint64_t movementValidation(MovementData&, uint64_t);
-	static void updateBoards(InitGameState::Board&, MovementData&, PositionalEvalComponent&, uint64_t);
+	static void updateBoards(GameStateContextComponent&, uint64_t);
+	static void reverseMovement(GameStateContextComponent&, uint64_t);
+
 private:
 	static void clearPickedPieceHelper(InitGameState::Board&, MovementData&);
 	static void clearOvertakenSquareHelper(InitGameState::Board&, MovementData&, PositionalEvalComponent&, uint64_t);

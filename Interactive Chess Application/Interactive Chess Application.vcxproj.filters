@@ -116,7 +116,7 @@
     <ClInclude Include="trace_path_component.h">
       <Filter>Header Files\MoveValidationComponents</Filter>
     </ClInclude>
-    <ClInclude Include="check_sim_frame_component.h">
+    <ClInclude Include="game_state_component.h">
       <Filter>Header Files\MoveValidationComponents</Filter>
     </ClInclude>
     <ClInclude Include="king_subopt_info.h">
@@ -128,9 +128,24 @@
     <ClInclude Include="king_dir_indices_info.h">
       <Filter>Header Files\Namespaces</Filter>
     </ClInclude>
+    <ClInclude Include="en_passant_state_component.h">
+      <Filter>Header Files\MoveValidationComponents</Filter>
+    </ClInclude>
+    <ClInclude Include="attack_eval_flags_info.h">
+      <Filter>Header Files\Namespaces</Filter>
+    </ClInclude>
+    <ClInclude Include="processed_square_info.h">
+      <Filter>Header Files\Namespaces</Filter>
+    </ClInclude>
+    <ClInclude Include="extract_path_component.h">
+      <Filter>Header Files\MoveValidationComponents</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="findings.md">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="architecture_findings.md">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>
