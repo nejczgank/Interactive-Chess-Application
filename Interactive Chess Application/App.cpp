@@ -17,6 +17,7 @@
 #include "en_passant_state_component.h"
 #include "game_state_component.h"
 #include "extract_path_component.h"
+#include "check_type_eval_flags_info.h"
 
 int main() {
 

@@ -77,20 +77,10 @@ int EvalCheckAndMateSystem::checkmateHandler(GameStateContextComponent& game_sta
 //
 }
 
-inline void EvalCheckAndMateSystem::switchTeams(GameStateContextComponent& game_state_ctx)
-{
-	//reverse allies an enemies
-	game_state_ctx.movement_data.allies  ^= game_state_ctx.movement_data.enemies;
-	game_state_ctx.movement_data.enemies ^= game_state_ctx.movement_data.allies;
-	game_state_ctx.movement_data.allies  ^= game_state_ctx.movement_data.enemies;
-	//reverse attackers and defenders
-	game_state_ctx.movement_data.attacker_color ^= 1;
-	game_state_ctx.movement_data.defender_color ^= 1;
-}
-
 int EvalCheckAndMateSystem::isSquareAttackedSimulated(GameStateContextComponent& game_state_ctx, uint64_t VALID_PIECE_PLACEMENT, const AttackEvalFlagsInfo::eval_flags eval_flags, const uint64_t PROCESSED_SQ, ExtractPathComponent& path_data)
 {
 	using enum AttackEvalFlagsInfo::eval_flags;
+	using enum CheckTypeFlagsInfo::eval_flags;
 
 	if ( (AttackEvalFlagsInfo::check & eval_flags) != none)
 	{
@@ -98,12 +88,12 @@ int EvalCheckAndMateSystem::isSquareAttackedSimulated(GameStateContextComponent&
 
 		//change game_state_ctx's imposed_check_square_idx for validation func
 		//imposing looks from the pov of the attacker therefore reverting teams is necessary for validation func
-		switchTeams(game_state_ctx);
-		int const IMPOSING = isSquareAttacked(game_state_ctx, VALID_PIECE_PLACEMENT, IMPOSED_CHECK_SQ_IDX, path_data);
-		switchTeams(game_state_ctx);
+		//switchTeams(game_state_ctx);
+		int const IMPOSING = evalSquareAttack(game_state_ctx, VALID_PIECE_PLACEMENT, imposing, IMPOSED_CHECK_SQ_IDX, path_data);//isSquareAttacked(game_state_ctx, VALID_PIECE_PLACEMENT, IMPOSED_CHECK_SQ_IDX, path_data);
+		//switchTeams(game_state_ctx);
 
 		//change game_state_ctx's discovered_check_square_idx for validation func
-		int const DISCOVERED = isSquareAttacked(game_state_ctx, VALID_PIECE_PLACEMENT, DISCOVERED_CHECK_SQ_IDX, path_data);
+		int const DISCOVERED = evalSquareAttack(game_state_ctx, VALID_PIECE_PLACEMENT, discovered, DISCOVERED_CHECK_SQ_IDX, path_data); //isSquareAttacked(game_state_ctx, VALID_PIECE_PLACEMENT, DISCOVERED_CHECK_SQ_IDX, path_data);
 
 		//result table
 		/*
@@ -173,46 +163,120 @@ EvalCheckAndMateSystem::PickedPiecesComponent EvalCheckAndMateSystem::findPicked
 	//find picked piece and return a struct which posseses: imposed_check_square_idx, discovered_check_square_idx, processed_square_idx
 }
 
+inline EvalCheckAndMateSystem::SwitchTeamsComponent EvalCheckAndMateSystem::getSwitchedTeamsData(const GameStateContextComponent& game_state_ctx)
+{
+	SwitchTeamsComponent switch_teams_bundle
+	{
+		game_state_ctx.movement_data.allies,
+		game_state_ctx.movement_data.enemies,
+		game_state_ctx.movement_data.attacker_color,
+		game_state_ctx.movement_data.defender_color
+	};
+
+	auto& [allies, enemies, attacker_color, defender_color] = switch_teams_bundle;
+
+	//reverse allies an enemies
+	allies ^= enemies;
+	enemies ^= allies;
+	allies ^= enemies;
+	//reverse attackers and defenders
+	attacker_color ^= 1;
+	defender_color ^= 1;
+
+	return switch_teams_bundle;
+}
+
+inline void EvalCheckAndMateSystem::switchTeams(GameStateContextComponent& game_state_ctx, const SwitchTeamsComponent& SWITCH_TEAMS_SIM, const uint64_t IF_IMPOSING)
+{
+	auto& [allies, enemies, attacker_color, defender_color] = SWITCH_TEAMS_SIM;
+
+	game_state_ctx.movement_data.allies			= (IF_IMPOSING & allies)		 | (~IF_IMPOSING & game_state_ctx.movement_data.allies);
+	game_state_ctx.movement_data.enemies		= (IF_IMPOSING & enemies)		 | (~IF_IMPOSING & game_state_ctx.movement_data.enemies);
+	game_state_ctx.movement_data.attacker_color = (IF_IMPOSING & attacker_color) | (~IF_IMPOSING & game_state_ctx.movement_data.attacker_color);
+	game_state_ctx.movement_data.defender_color = (IF_IMPOSING & defender_color) | (~IF_IMPOSING & game_state_ctx.movement_data.defender_color);
+}
+
+int EvalCheckAndMateSystem::evalSquareAttack(GameStateContextComponent& game_state_ctx, uint64_t VALID_PIECE_PLACEMENT, CheckTypeFlagsInfo::eval_flags eval_flags, const int PICKED_SQ_IDX, ExtractPathComponent& path_data)
+{
+	/*
+	* orchestrator function that is responsible for evaluating whether a square was attacked.
+	* It's purpose is to direct the exact execution method which varies between imposed or discovered check types.
+	* The reason for why it varies stems from how both types require changing ally and enemy pieces.
+	* Namely imposition requires this change to center it's POV from the enemy king's side.
+	* switching teams either proceeds or doesn't based on the evaluation flag.
+	*/
+
+	const uint64_t IF_IMPOSING = 0ULL - static_cast<uint64_t>(eval_flags);
+
+	//enact the exact move the player just made to test wether it constitutes a check
+	BoardUpdatingSystem::updateBoards(game_state_ctx, VALID_PIECE_PLACEMENT);
+
+	//adjust team data accordingly
+	SwitchTeamsComponent switch_teams_sim = getSwitchedTeamsData(game_state_ctx);
+	switchTeams(game_state_ctx, switch_teams_sim, IF_IMPOSING);
+
+	//obtain either a positive check result or negative
+	const int IS_ATTACK_FOUND = isSquareAttacked(game_state_ctx, VALID_PIECE_PLACEMENT, PICKED_SQ_IDX, path_data);
+
+	//readjust team data accordingly
+	switch_teams_sim = getSwitchedTeamsData(game_state_ctx);
+	switchTeams(game_state_ctx, switch_teams_sim, IF_IMPOSING);
+	
+	//reverse the move to bring back the inital state. board_updating_sytem later decided whether a move can occur or not
+	BoardUpdatingSystem::reverseMovement(game_state_ctx, VALID_PIECE_PLACEMENT);
+	
+	//adjust the check result to synchronize with the former multiplexor found within isSquareAttackedSimulated
+	constexpr int DISCOVERED_VALUE = 1;
+	constexpr int IMPOSING_VALUE   = 2;
+
+	//calculate the result table:
+	/*
+	 * 0 - no check
+	 * 1 - discovered check
+	 * 2 - imposed check
+	*/
+	const int DISCOVERED_ATTACK = IS_ATTACK_FOUND * (1 - (int)eval_flags) * DISCOVERED_VALUE;
+	const int IMPOSED_ATTACK    = IS_ATTACK_FOUND * (int)eval_flags		  * IMPOSING_VALUE;
+
+	const int ATTACK_VALUE = DISCOVERED_ATTACK + IMPOSED_ATTACK;
+
+	return ATTACK_VALUE;
+}
+
 int EvalCheckAndMateSystem::isSquareAttacked(GameStateContextComponent& game_state_ctx, uint64_t VALID_PIECE_PLACEMENT, const int PICKED_SQ_IDX, ExtractPathComponent& path_data)
 {
-	using enum pieceInfo::piece;
+	/*
+	* check if any one of enemy piece is attacking the processed square
+	* this usually means the king
+	*/
 
-	//enact a move
-	//LOOK FOR THAT PNG WHERE U REALIZED HOW YOU MUST PROCEED.
-	//BASICALLY YOU HAVE TO PERFORM SOME ORCHESTRATOR BULLSHIT DECOUPLING CUZ
-	//IMPOSITION REQUIRES REVERTING ENEMIES AND ALLIES WHICH THROWS OFF THIS ENTIRE NEAT CODE BLOCK
-	//IT MAKES THE UPDATE/REVERSE BOARDS CONTAINED WITHIN INVALID
-	BoardUpdatingSystem::updateBoards(game_state_ctx, VALID_PIECE_PLACEMENT);
+	using enum pieceInfo::piece;
 	
 	auto& movement_data = game_state_ctx.movement_data;
-	const int HOLD_REAL_SQ_IDX = movement_data.picked_square_idx;
+
+	//hold indicies and piece type state
+	const int HOLD_REAL_SQ_IDX	   = movement_data.picked_square_idx;
+	const int HOLD_REAL_PIECE_TYPE = movement_data.picked_piece_type;
 
 	//swap indicies
 	movement_data.picked_square_idx = PICKED_SQ_IDX;
-	
+
 	//loop through all piece types
 	constexpr pieceInfo::piece ATTACKERS[] = {pawn, knight, rook, bishop, queen};
-
+	
 	bool is_attack_found = false;
 
 	for(const auto piece : ATTACKERS)
 	{
+		movement_data.picked_piece_type = getPieceIndex(piece, movement_data.attacker_color); //set this value to access the exact validation type inside isAnyPieceAttacking
 		is_attack_found |= isAnyPieceAttacking(game_state_ctx, piece, path_data, is_attack_found);
 	}
 	//execute separate function for king
+	//NEEDS TO BE ADDED
 
-	//result table
-	/*
-	* 0 - no check
-	* 1 - discovered check
-	* 2 - imposed check
-	*/
-
-	//reset to real idx
-	movement_data.picked_square_idx = PICKED_SQ_IDX;
-
-	//reverse the move
-	BoardUpdatingSystem::reverseMovement(game_state_ctx, VALID_PIECE_PLACEMENT);
+	//reset to real idx and piece type
+	movement_data.picked_square_idx = HOLD_REAL_SQ_IDX;
+	movement_data.picked_piece_type = HOLD_REAL_PIECE_TYPE;
 
 	//implicit bool to int conversion
 	return is_attack_found;
@@ -222,22 +286,18 @@ bool EvalCheckAndMateSystem::isAnyPieceAttacking(GameStateContextComponent& game
 {
 	auto& [board, movement_data, _1, _2] = game_state_ctx;
 
+	//THIS HAS TO ADJUST FOR PAWNS TO ACCOUNT ONLY DIAGONALS
 	uint64_t valid_moves = MoveValidationSystem::validator(board, movement_data, path_data); //find where the attacker can move
+
 	//find if it's movement profile intersects with the piece we're inspecting
 	const int OPPOSITE_PIECE = getPieceIndex(piece, movement_data.defender_color);  
-	const bool IS_ATTACK_FOUND = (board.pieces[OPPOSITE_PIECE & valid_moves] > 0);
+	const bool IS_ATTACK_FOUND = (board.pieces[OPPOSITE_PIECE] & valid_moves) > 0;
 
 	return IS_ATTACK_FOUND;
 }
 
 //TODO:
-// check
-//1. trace the code to see if there's any lingering issues
-// (
-// issues i found:
-// - swapteams was incomplete and it fucked up allied and enemies global state
-// - something goes wrong with imposing and discovered returning 1 preemptively
-// )
+//1. adjust pawns to recognize only diagonal attacks
 //2. make a function for when the king must overtake an attacking piece
 //2.5 king must also not be pinned when overtaking
 

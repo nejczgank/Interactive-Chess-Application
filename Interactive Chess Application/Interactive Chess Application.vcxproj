@@ -138,6 +138,7 @@
   <ItemGroup>
     <ClInclude Include="attack_eval_flags_info.h" />
     <ClInclude Include="board_updating_system.h" />
+    <ClInclude Include="check_type_eval_flags_info.h" />
     <ClInclude Include="display.h" />
     <ClInclude Include="extract_path_component.h" />
     <ClInclude Include="extract_ray_type_info.h" />

@@ -8,7 +8,7 @@ struct GameStateContextComponent
 {
 	InitGameState::Board& board;
 	MovementData& movement_data;
-	PositionalEvalComponent& pos_eval_data;
+	PositionalEvalComponent& pos_eval_data; // pol ko bo ai
 	//uint64_t VALID_PIECE_PLACEMENT;
 	EnPassantStateComponent& en_passant_data;
 };

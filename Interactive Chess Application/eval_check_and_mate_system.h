@@ -20,6 +20,7 @@
 #include "attack_eval_flags_info.h"
 #include "processed_square_info.h"
 #include "extract_path_component.h"
+#include "check_type_eval_flags_info.h"
 
 class EvalCheckAndMateSystem {
 public:
@@ -59,13 +60,22 @@ private:
 		int processed_sq_idx{};
 	};
 
-	static inline void switchTeams(GameStateContextComponent&);
-	static int isSquareAttackedSimulated(GameStateContextComponent&, uint64_t, const AttackEvalFlagsInfo::eval_flags, const uint64_t, ExtractPathComponent& path_data);
+	struct SwitchTeamsComponent
+	{
+		uint64_t allies{};
+		uint64_t enemies{};
+		uint64_t attacker_color{};
+		uint64_t defender_color{};
+	};
+
+	static inline SwitchTeamsComponent getSwitchedTeamsData(const GameStateContextComponent&);
+	static inline void switchTeams(GameStateContextComponent&, const SwitchTeamsComponent&, const uint64_t);
+	static int isSquareAttackedSimulated(GameStateContextComponent&, uint64_t, const AttackEvalFlagsInfo::eval_flags, const uint64_t, ExtractPathComponent&);
 	static inline constexpr int getPieceIndex(const int, const int);
 	static PickedPiecesComponent findPickedPieces(const GameStateContextComponent&, const AttackEvalFlagsInfo::eval_flags, const uint64_t);
+	static int evalSquareAttack(GameStateContextComponent&, uint64_t, const CheckTypeFlagsInfo::eval_flags, const int, ExtractPathComponent&);
 	static int isSquareAttacked(GameStateContextComponent&, uint64_t, const int, ExtractPathComponent& path_data);
-	static int setNewPickedSquareIdx();
-	static bool isAnyPieceAttacking(GameStateContextComponent&, pieceInfo::piece piece, ExtractPathComponent& path_data, bool is_attack_found);
+	static bool isAnyPieceAttacking(GameStateContextComponent&, pieceInfo::piece, ExtractPathComponent&, bool);
 
 	static int isKingCheckmate();
 
