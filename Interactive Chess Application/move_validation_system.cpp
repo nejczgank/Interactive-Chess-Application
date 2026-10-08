@@ -212,6 +212,30 @@ uint64_t MoveValidationSystem::findBlockersHelper(const MovementData& movement_d
 	return HALF_MASK & DIRECTIONAL_RAY_MASK;
 }
 
+uint64_t MoveValidationSystem::findPawnAttacks(const InitGameState::Board& board, const MovementData& movement_data)
+{
+	using enum occupancyInfo::occupancy;
+	using enum pieceInfo::piece;
+
+	//prevent wraparound
+	constexpr uint64_t NOT_A = 0xfefefefefefefefe;
+	constexpr uint64_t NOT_H = 0x7f7f7f7f7f7f7f7f;
+
+	//diagonal offsets
+	constexpr uint64_t RIGHT_ATTACK = 9;
+	constexpr uint64_t LEFT_ATTACK = 7;
+
+	//prevent diagonal wrapping, exclude allied positions, check occupancy intersection with varied diagonally transposed bits
+	const uint64_t REGULAR_ATTACK_MASK =
+		(NOT_H & ~movement_data.allies & (1ULL << (movement_data.picked_square_idx + LEFT_ATTACK)))   |
+		(NOT_A & ~movement_data.allies & (1ULL << (movement_data.picked_square_idx + RIGHT_ATTACK)))  |
+		(NOT_A & ~movement_data.allies & ( (1ULL << movement_data.picked_square_idx) >> LEFT_ATTACK)) |
+		(NOT_H & ~movement_data.allies & ( (1ULL << movement_data.picked_square_idx) >> RIGHT_ATTACK))
+	;
+
+	return REGULAR_ATTACK_MASK;
+}
+
 uint64_t MoveValidationSystem::pawnValidation(const InitGameState::Board& board, MovementData& movement_data, TracePathComponent& path_data, ExtractRayTypeInfo::ray_type)
 {
 	/*

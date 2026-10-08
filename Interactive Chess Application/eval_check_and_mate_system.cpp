@@ -252,7 +252,7 @@ int EvalCheckAndMateSystem::isSquareAttacked(GameStateContextComponent& game_sta
 
 	using enum pieceInfo::piece;
 	
-	auto& movement_data = game_state_ctx.movement_data;
+	auto& [BOARD, movement_data, _1, _2] = game_state_ctx;
 
 	//hold indicies and piece type state
 	const int HOLD_REAL_SQ_IDX	   = movement_data.picked_square_idx;
@@ -262,17 +262,21 @@ int EvalCheckAndMateSystem::isSquareAttacked(GameStateContextComponent& game_sta
 	movement_data.picked_square_idx = PICKED_SQ_IDX;
 
 	//loop through all piece types
-	constexpr pieceInfo::piece ATTACKERS[] = {pawn, knight, rook, bishop, queen};
+	constexpr pieceInfo::piece ATTACKERS[] = {knight, rook, bishop, queen};
 	
 	bool is_attack_found = false;
 
+	//check pawn attacks
+	const uint64_t VALID_PAWN_MOVES = MoveValidationSystem::findPawnAttacks(BOARD, movement_data);
+	const uint64_t ENEMY_PAWN_LOCATION = BOARD.pieces[getPieceIndex(pawn, movement_data.defender_color)];
+	is_attack_found |= (VALID_PAWN_MOVES & ENEMY_PAWN_LOCATION) > 0;
+
+	//check sliding piece attacks
 	for(const auto piece : ATTACKERS)
 	{
 		movement_data.picked_piece_type = getPieceIndex(piece, movement_data.attacker_color); //set this value to access the exact validation type inside isAnyPieceAttacking
 		is_attack_found |= isAnyPieceAttacking(game_state_ctx, piece, path_data, is_attack_found);
 	}
-	//execute separate function for king
-	//NEEDS TO BE ADDED
 
 	//reset to real idx and piece type
 	movement_data.picked_square_idx = HOLD_REAL_SQ_IDX;
@@ -297,7 +301,6 @@ bool EvalCheckAndMateSystem::isAnyPieceAttacking(GameStateContextComponent& game
 }
 
 //TODO:
-//1. adjust pawns to recognize only diagonal attacks
 //2. make a function for when the king must overtake an attacking piece
 //2.5 king must also not be pinned when overtaking
 
@@ -537,7 +540,7 @@ int EvalCheckAndMateSystem::isKingCheckmate()
 //	uint64_t valid_moves = MoveValidationSystem::validator(new_board, probe_sim_movement, path_data, ray_type); //find where the attacker can move
 //	attack_found |= ( (new_board.pieces[ OPP_PIECES[PIECE] ] & valid_moves) > 0);								//find if it's movement profile intersects with the piece we're inspecting
 //}
-//
+
 //void EvalCheckAndMateSystem::isPieceKingAtkHelper(MovementData& probe_sim_movement, const CheckSimFrameComponent& check_sim_frame, CheckTypeColorComponent& check_type, TracePathComponent& path_data, bool& attack_found, const int PIECE, const int(&PIECES)[6], const int(&OPP_PIECES)[6], ExtractRayTypeInfo::ray_type ray_type, const bool IF_KING)
 //{
 //	/*
@@ -587,7 +590,7 @@ int EvalCheckAndMateSystem::isKingCheckmate()
 //	
 //	//attack_found |= ((VALID_KING_MOVES & valid_moves) > 0);
 //}
-//
+
 //bool EvalCheckAndMateSystem::isKingCheckmate(const CheckSimFrameComponent& check_sim_frame, CheckTypeFrameComponent& check_type_frame, StalemateDataComponent& stalemate_data)
 //{
 //	/*

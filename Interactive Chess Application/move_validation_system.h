@@ -29,6 +29,7 @@ public:
 	static uint64_t validator(const InitGameState::Board&, MovementData&, ExtractPathComponent&); //TracePathComponent&, ExtractRayTypeInfo::ray_type);
 	static KingValidationBundle kingMoves(const MovementData&); //determines where the king can move. used for both checkmate validation and king movement validation
 	static uint64_t kingValidation(const InitGameState::Board&, MovementData&, TracePathComponent&, ExtractRayTypeInfo::ray_type); //adjusts valid moves based on kings' proximity
+	static uint64_t findPawnAttacks(const InitGameState::Board&, const MovementData&);
 private:
 
 	struct MaskComponent
