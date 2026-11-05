@@ -225,12 +225,17 @@ uint64_t MoveValidationSystem::findPawnAttacks(const InitGameState::Board& board
 	constexpr uint64_t RIGHT_ATTACK = 9;
 	constexpr uint64_t LEFT_ATTACK = 7;
 
+	//allowed positions based on attacker color
+	const uint64_t IF_WHITE = -(movement_data.defender_color == 0);
+	const uint64_t IF_BLACK = -(movement_data.defender_color == 1);
+
 	//prevent diagonal wrapping, exclude allied positions, check occupancy intersection with varied diagonally transposed bits
+	//aside from allies you also need to enable or disable certain ones based on attacker_color...
 	const uint64_t REGULAR_ATTACK_MASK =
-		(NOT_H & ~movement_data.allies & (1ULL << (movement_data.picked_square_idx + LEFT_ATTACK)))   |
-		(NOT_A & ~movement_data.allies & (1ULL << (movement_data.picked_square_idx + RIGHT_ATTACK)))  |
-		(NOT_A & ~movement_data.allies & ( (1ULL << movement_data.picked_square_idx) >> LEFT_ATTACK)) |
-		(NOT_H & ~movement_data.allies & ( (1ULL << movement_data.picked_square_idx) >> RIGHT_ATTACK))
+		(NOT_H & IF_BLACK & ~movement_data.allies & (1ULL << (movement_data.picked_square_idx + LEFT_ATTACK)))   |
+		(NOT_A & IF_BLACK & ~movement_data.allies & (1ULL << (movement_data.picked_square_idx + RIGHT_ATTACK)))  |
+		(NOT_A & IF_WHITE & ~movement_data.allies & ( (1ULL << movement_data.picked_square_idx) >> LEFT_ATTACK)) |
+		(NOT_H & IF_WHITE & ~movement_data.allies & ( (1ULL << movement_data.picked_square_idx) >> RIGHT_ATTACK))
 	;
 
 	return REGULAR_ATTACK_MASK;
@@ -731,7 +736,6 @@ uint64_t MoveValidationSystem::kingValidation(const InitGameState::Board& board,
 	king_mask |= kVB.KING_DIR_MASKS[down_right] & ~ENEMY_KING_ADJACENT[down_right];
 
 	return king_mask;
-
 }
 
 uint64_t MoveValidationSystem::validator(const InitGameState::Board& board, MovementData& movement_data, ExtractPathComponent& path_data)//TracePathComponent& path_data, ExtractRayTypeInfo::ray_type ray_type)

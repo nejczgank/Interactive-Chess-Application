@@ -18,6 +18,7 @@
 #include "game_state_component.h"
 #include "extract_path_component.h"
 #include "check_type_eval_flags_info.h"
+#include "eval_board_state_edit_info.h"
 
 int main() {
 

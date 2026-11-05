@@ -143,6 +143,9 @@
     <ClInclude Include="check_type_eval_flags_info.h">
       <Filter>Header Files\Namespaces</Filter>
     </ClInclude>
+    <ClInclude Include="eval_board_state_edit_info.h">
+      <Filter>Header Files\Namespaces</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="findings.md">

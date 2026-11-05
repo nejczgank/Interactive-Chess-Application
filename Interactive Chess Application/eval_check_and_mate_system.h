@@ -21,6 +21,7 @@
 #include "processed_square_info.h"
 #include "extract_path_component.h"
 #include "check_type_eval_flags_info.h"
+#include "eval_board_state_edit_info.h"
 
 class EvalCheckAndMateSystem {
 public:
@@ -73,11 +74,20 @@ private:
 	static int isSquareAttackedSimulated(GameStateContextComponent&, uint64_t, const AttackEvalFlagsInfo::eval_flags, const uint64_t, ExtractPathComponent&);
 	static inline constexpr int getPieceIndex(const int, const int);
 	static PickedPiecesComponent findPickedPieces(const GameStateContextComponent&, const AttackEvalFlagsInfo::eval_flags, const uint64_t);
-	static int evalSquareAttack(GameStateContextComponent&, uint64_t, const CheckTypeFlagsInfo::eval_flags, const int, ExtractPathComponent&);
-	static int isSquareAttacked(GameStateContextComponent&, uint64_t, const int, ExtractPathComponent& path_data);
+	static int evalSquareAttack(GameStateContextComponent&);
+	static int evalSquareAttack(GameStateContextComponent&, uint64_t, uint64_t, const CheckTypeFlagsInfo::eval_flags, const EvalBoardStateEditInfo::eval_flags, const int, ExtractPathComponent&);
+	static uint64_t selectPlacementMask(GameStateContextComponent&, EvalBoardStateEditInfo::eval_flags, const uint64_t, const uint64_t);
+	static int simSquareAttack(GameStateContextComponent&, uint64_t, CheckTypeFlagsInfo::eval_flags, int, ExtractPathComponent&);
+	static int isSquareAttacked(GameStateContextComponent&, const int, ExtractPathComponent&);
 	static bool isAnyPieceAttacking(GameStateContextComponent&, pieceInfo::piece, ExtractPathComponent&, bool);
+	static bool evalBlockerEligibility(GameStateContextComponent&, uint64_t, const int, const uint64_t);
+	static inline int calcPickedPieceType(const GameStateContextComponent&, uint64_t);
+	static inline uint64_t calcAllyKingMask(const GameStateContextComponent&);
 
-	static int isKingCheckmate();
+	static int isKingCheckmate(GameStateContextComponent&, const uint64_t);
+	static uint64_t getAttackerPath(GameStateContextComponent&);
+	static bool isBlockPossible(GameStateContextComponent&, const uint64_t, uint64_t);
+	static bool canKingMove();
 
 	////struct setters
 	//static void setCheckSimFrame(InitGameState::Board&, MovementData&, PositionalEvalComponent&, CheckSimFrameComponent&);

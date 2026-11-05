@@ -5,6 +5,7 @@ namespace ProcessedSquareInfo
 {
 	enum squareInfo : uint64_t
 	{
-		NO_PROCESSED_SQ = 0ULL
+		NO_PROCESSED_SQ = 0ULL,
+		PROCESSED_SQ = ~0ULL
 	};
 }

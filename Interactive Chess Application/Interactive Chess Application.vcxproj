@@ -140,6 +140,7 @@
     <ClInclude Include="board_updating_system.h" />
     <ClInclude Include="check_type_eval_flags_info.h" />
     <ClInclude Include="display.h" />
+    <ClInclude Include="eval_board_state_edit_info.h" />
     <ClInclude Include="extract_path_component.h" />
     <ClInclude Include="extract_ray_type_info.h" />
     <ClInclude Include="king_dir_indices_info.h" />
