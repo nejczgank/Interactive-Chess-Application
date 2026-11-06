@@ -84,6 +84,14 @@ private:
 		int const HOLD_PLACED_PIECE_TYPE{};
 	};
 
+	struct ProcessBlockersContext
+	{
+		const uint64_t& ALLY_KING_MASK;
+		uint64_t& unfiltered_blockers_mask;
+		const int& PROCESSED_SQ_IDX;
+		const uint64_t& PROCESSED_SQ;
+	};
+
 	static inline SwitchTeamsComponent getSwitchedTeamsData(const GameStateContextComponent&);
 	static inline void switchTeams(GameStateContextComponent&, const SwitchTeamsComponent&, const uint64_t);
 	static int isSquareAttackedSimulated(GameStateContextComponent&, uint64_t, const AttackEvalFlagsInfo::eval_flags, const uint64_t, ExtractPathComponent&);
@@ -97,10 +105,12 @@ private:
 	static int isSquareAttacked(GameStateContextComponent&, const int, ExtractPathComponent&);
 	static bool isAnyPieceAttacking(GameStateContextComponent&, pieceInfo::piece, ExtractPathComponent&, bool);
 
-
 	static inline void setNewPickedSquareIdx(GameStateContextComponent&, const int);
-	static void findBlockers();
-	static bool evalBlockerEligibility(GameStateContextComponent&, uint64_t, const int, const uint64_t);
+	static uint64_t findBlockers(GameStateContextComponent&, const int);
+	static bool processBlockers(GameStateContextComponent&, ProcessBlockersContext&, ExtractPathComponent&);
+	static inline void performSwitch(GameStateContextComponent&, SwitchTeamsComponent&);
+	static inline void restoreMovementState(GameStateContextComponent&, SwitchTeamsComponent&, HoldMovementDataComponent&);
+	static bool evalBlockerEligibility(GameStateContextComponent&, uint64_t, const int, const uint64_t, ExtractPathComponent&);
 	static inline int calcPickedPieceType(const GameStateContextComponent&, uint64_t);
 	static inline uint64_t calcAllyKingMask(const GameStateContextComponent&);
 	static int isKingCheckmate(GameStateContextComponent&, const uint64_t);

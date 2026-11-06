@@ -128,7 +128,7 @@ int EvalCheckAndMateSystem::isSquareAttackedSimulated(GameStateContextComponent&
 		int constexpr CHECK_FALLBACK = 2;
 		int constexpr ELIGIBLE_BLOCKERS_VALUE = 4;
 
-		bool eval_eligibility = evalBlockerEligibility(game_state_ctx, VALID_PIECE_PLACEMENT, PROCESSED_SQ_IDX, PROCESSED_SQ);
+		bool eval_eligibility = evalBlockerEligibility(game_state_ctx, VALID_PIECE_PLACEMENT, PROCESSED_SQ_IDX, PROCESSED_SQ, path_data);
 
 		return (CHECK_FALLBACK * (1 - eval_eligibility)) + ELIGIBLE_BLOCKERS_VALUE * eval_eligibility;
 
@@ -327,9 +327,11 @@ inline void EvalCheckAndMateSystem::setNewPickedSquareIdx(GameStateContextCompon
 	game_state_ctx.movement_data.picked_square_idx = PROCESSED_SQ_IDX;
 }
 
-void EvalCheckAndMateSystem::findBlockers()
+uint64_t EvalCheckAndMateSystem::findBlockers(GameStateContextComponent& game_state_ctx, const int PROCESSED_SQ_IDX)
 {
 	using enum pieceInfo::piece;
+	using enum ExtractRayTypeInfo::ray_type;
+	auto& [board, movement_data, _1, _2] = game_state_ctx;
 
 	//adjust to new state/idx
 	setNewPickedSquareIdx(game_state_ctx, PROCESSED_SQ_IDX);
@@ -368,9 +370,68 @@ void EvalCheckAndMateSystem::findBlockers()
 	auto [_3, VALID_KING_MOVES] = MoveValidationSystem::kingMoves(movement_data);
 	const uint64_t ENEMY_KING_LOCATIONS = board.pieces[getPieceIndex(king, movement_data.defender_color)];
 	unfiltered_blockers_mask |= (VALID_KING_MOVES & ENEMY_KING_LOCATIONS);
+
+	return unfiltered_blockers_mask;
 }
 
-bool EvalCheckAndMateSystem::evalBlockerEligibility(GameStateContextComponent& game_state_ctx, uint64_t VALID_PIECE_PLACEMENT, const int PROCESSED_SQ_IDX, const uint64_t PROCESSED_SQ)
+inline void EvalCheckAndMateSystem::performSwitch(GameStateContextComponent& game_state_ctx, SwitchTeamsComponent& switch_teams_sim)
+{
+	switch_teams_sim = getSwitchedTeamsData(game_state_ctx);
+	constexpr uint64_t EXECUTE = ~0ULL;
+	switchTeams(game_state_ctx, switch_teams_sim, EXECUTE);
+}
+
+inline void EvalCheckAndMateSystem::restoreMovementState(GameStateContextComponent& game_state_ctx, SwitchTeamsComponent& switch_teams_sim, HoldMovementDataComponent& hold_movement_data)
+{
+	auto& movement_data = game_state_ctx.movement_data;
+
+	performSwitch(game_state_ctx, switch_teams_sim);
+
+	movement_data.picked_square_idx		= hold_movement_data.HOLD_PICKED_IDX;
+	movement_data.picked_piece_type		= hold_movement_data.HOLD_PICKED_PIECE_TYPE;
+	movement_data.placement_square_idx	= hold_movement_data.HOLD_PLACEMENT_SQUARE_IDX;
+	movement_data.placed_piece_type		= hold_movement_data.HOLD_PLACED_PIECE_TYPE;
+}
+
+bool EvalCheckAndMateSystem::processBlockers(GameStateContextComponent& game_state_ctx, ProcessBlockersContext& process_blockers_ctx, ExtractPathComponent& sim_path_data)
+{
+	using enum CheckTypeFlagsInfo::eval_flags;
+
+	auto& [board, movement_data, _1, _2] = game_state_ctx;
+	auto& [ALLY_KING_MASK, unfiltered_blockers_mask, PROCESSED_SQ_IDX, PROCESSED_SQ] = process_blockers_ctx;
+	
+	while (unfiltered_blockers_mask > 0ULL)
+	{
+		//Isolate the least significant square
+		uint64_t processed_square = unfiltered_blockers_mask & (0ULL - unfiltered_blockers_mask);
+
+		//Remove the least significant square for subsequent iterations
+		unfiltered_blockers_mask &= ~processed_square;
+
+		//prepare state to simulate the movement:
+		movement_data.picked_square_idx    = std::countr_zero(processed_square);
+		movement_data.placement_square_idx = PROCESSED_SQ_IDX;
+		movement_data.picked_piece_type    = calcPickedPieceType(game_state_ctx, processed_square);
+		movement_data.placed_piece_type    = -1;
+
+		ValidPiecePlacementsContext vpp_ctx{
+			PROCESSED_SQ,
+			ALLY_KING_MASK
+		};
+
+		int const DISCOVERED = evalOneBlocker(game_state_ctx, vpp_ctx, discovered, std::countr_zero(ALLY_KING_MASK), sim_path_data);
+
+		int constexpr NO_PIN = 0;
+		if (DISCOVERED == NO_PIN)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool EvalCheckAndMateSystem::evalBlockerEligibility(GameStateContextComponent& game_state_ctx, uint64_t VALID_PIECE_PLACEMENT, const int PROCESSED_SQ_IDX, const uint64_t PROCESSED_SQ, ExtractPathComponent& sim_path_data)
 {
 	using enum pieceInfo::piece;
 	using enum AttackEvalFlagsInfo::eval_flags;
@@ -384,11 +445,6 @@ bool EvalCheckAndMateSystem::evalBlockerEligibility(GameStateContextComponent& g
 	BoardUpdatingSystem::updateBoards(game_state_ctx, VALID_PIECE_PLACEMENT);
 
 	//hold previous state
-	//int const HOLD_PICKED_IDX = movement_data.picked_square_idx;
-	//int const HOLD_PICKED_PIECE_TYPE = movement_data.picked_piece_type;
-	//int const HOLD_PLACEMENT_SQUARE_IDX = movement_data.placement_square_idx;
-	//int const HOLD_PLACED_PIECE_TYPE = movement_data.placed_piece_type;
-
 	HoldMovementDataComponent hold_movement_data = 
 	{
 		movement_data.picked_square_idx,
@@ -397,114 +453,30 @@ bool EvalCheckAndMateSystem::evalBlockerEligibility(GameStateContextComponent& g
 		movement_data.placed_piece_type
 	};
 
-
-
-	//adjust to new state/idx
-	setNewPickedSquareIdx(game_state_ctx, PROCESSED_SQ_IDX);
-	//movement_data.picked_square_idx = PROCESSED_SQ_IDX;
-
-	//find the intersects to dissect each one systematically. while loop their uint board mask
-	//find all blockers
-	uint64_t unfiltered_blockers_mask = 0ULL;
-
-	//find pawn blockers
-	const uint64_t VALID_PAWN_MOVES = MoveValidationSystem::findPawnAttacks(board, movement_data); // all valid attacks for enemy pawns
-	const uint64_t ENEMY_PAWN_LOCATION = board.pieces[getPieceIndex(pawn, movement_data.defender_color)]; // all enemy pawn positions
-	unfiltered_blockers_mask |= (VALID_PAWN_MOVES & ENEMY_PAWN_LOCATION); // intersect for valid attacking pawns
-
-	//find sliding piece blockers
-	constexpr pieceInfo::piece ATTACKERS[] = {knight, rook, bishop, queen};
-	
-	ExtractPathComponent sim_path_data{ {}, attack_ray };
-	for (const auto piece : ATTACKERS)
-	{
-		//set this value to access the exact validation type inside isAnyPieceAttacking
-		movement_data.picked_piece_type = getPieceIndex(piece, movement_data.attacker_color);
-
-		//get the exact moves where an enemy blocker of a given type can be
-		uint64_t valid_moves = MoveValidationSystem::validator(board, movement_data, sim_path_data); 
-
-		//figure out the blockers type
-		const int OPPOSITE_PIECE = getPieceIndex(piece, movement_data.defender_color);
-
-		//intersect positions of appropriate piece types with valid moves wherefrom the attack can occur.
-		//append it the value to unfiltered blockers
-		unfiltered_blockers_mask |= board.pieces[OPPOSITE_PIECE] & valid_moves;
-	}
-
-	//find king piece blockers
-	auto [_3, VALID_KING_MOVES] = MoveValidationSystem::kingMoves(movement_data);
-	const uint64_t ENEMY_KING_LOCATIONS = board.pieces[getPieceIndex(king, movement_data.defender_color)];
-	unfiltered_blockers_mask |= (VALID_KING_MOVES & ENEMY_KING_LOCATIONS);
-
-	//for each blocker previously added to the list, find whether they aren't pinned down
-	//I THINK THE ABOVE COMMENT MAY NOT BE CORRECT
+	uint64_t unfiltered_blockers_mask = findBlockers(game_state_ctx, PROCESSED_SQ_IDX);
 
 	//switch teams to prepare state
-	constexpr uint64_t EXECUTE = ~0ULL;
 
-	SwitchTeamsComponent switch_teams_sim = getSwitchedTeamsData(game_state_ctx);
-	switchTeams(game_state_ctx, switch_teams_sim, EXECUTE);
+	SwitchTeamsComponent switch_teams_sim{};
+	performSwitch(game_state_ctx, switch_teams_sim);
 
 	const uint64_t ALLY_KING_MASK = calcAllyKingMask(game_state_ctx);
 
-	while (unfiltered_blockers_mask > 0ULL)
+	ProcessBlockersContext process_blockers_ctx
 	{
-		//Isolate the least significant square
-		uint64_t processed_square = unfiltered_blockers_mask & (0ULL - unfiltered_blockers_mask);
+		ALLY_KING_MASK,
+		unfiltered_blockers_mask,
+		PROCESSED_SQ_IDX,
+		PROCESSED_SQ
+	};
 
-		//Remove the least significant square for subsequent iterations
-		unfiltered_blockers_mask &= ~processed_square;
+	const bool CAN_BLOCK_CHECKMATE = processBlockers(game_state_ctx, process_blockers_ctx, sim_path_data);
 
-		//prepare state to simulate the movement:
-		movement_data.picked_square_idx = std::countr_zero(processed_square);
-		movement_data.placement_square_idx = PROCESSED_SQ_IDX;
-		movement_data.picked_piece_type = calcPickedPieceType(game_state_ctx, processed_square); //what if it's empty though?
-		movement_data.placed_piece_type = -1; //not sure if I really need this one. news flash. Oh boy I did
-
-		//i need a new orchestrator to not cause too much indirection again...
-		//i think I went overboard with this exact function
-
-		//int const DISCOVERED = evalSquareAttack(game_state_ctx, PROCESSED_SQ, ALLY_KING_MASK, discovered, discovered_mate_used, PROCESSED_SQ_IDX, sim_path_data);
-		//int const DISCOVERED = evalSquareAttack(game_state_ctx, PROCESSED_SQ, ALLY_KING_MASK, discovered, discovered_mate_used, std::countr_zero(ALLY_KING_MASK), sim_path_data);
-
-		ValidPiecePlacementsContext vpp_ctx{
-			PROCESSED_SQ,
-			ALLY_KING_MASK
-		};
-
-		int const DISCOVERED = evalOneBlocker(game_state_ctx, vpp_ctx, discovered, std::countr_zero(ALLY_KING_MASK), sim_path_data);
-
-		int constexpr NO_PIN = 0;
-
-		if (DISCOVERED == NO_PIN)
-		{
-
-			switch_teams_sim = getSwitchedTeamsData(game_state_ctx);
-			switchTeams(game_state_ctx, switch_teams_sim, EXECUTE);
-
-			movement_data.picked_square_idx = HOLD_PICKED_IDX;
-			movement_data.picked_piece_type = HOLD_PICKED_PIECE_TYPE;
-			movement_data.placement_square_idx = HOLD_PLACEMENT_SQUARE_IDX;
-			movement_data.placed_piece_type = HOLD_PLACED_PIECE_TYPE;
-
-			BoardUpdatingSystem::reverseMovement(game_state_ctx, VALID_PIECE_PLACEMENT);
-
-			return true;
-		}
-	}
-
-	switch_teams_sim = getSwitchedTeamsData(game_state_ctx);
-	switchTeams(game_state_ctx, switch_teams_sim, EXECUTE);
-
-	movement_data.picked_square_idx = HOLD_PICKED_IDX;
-	movement_data.picked_piece_type = HOLD_PICKED_PIECE_TYPE;
-	movement_data.placement_square_idx = HOLD_PLACEMENT_SQUARE_IDX;
-	movement_data.placed_piece_type = HOLD_PLACED_PIECE_TYPE;
+	restoreMovementState(game_state_ctx, switch_teams_sim, hold_movement_data);
 
 	BoardUpdatingSystem::reverseMovement(game_state_ctx, VALID_PIECE_PLACEMENT);
 
-	return false;
+	return CAN_BLOCK_CHECKMATE;
 }
 
 //int EvalCheckAndMateSystem::evalSquareAttack(GameStateContextComponent& game_state_ctx, uint64_t VALID_PIECE_PLACEMENT, uint64_t ALLY_KING_MASK, const CheckTypeFlagsInfo::eval_flags eval_flags_1, const EvalBoardStateEditInfo::eval_flags eval_flags_2, const int PICKED_SQ_IDX, ExtractPathComponent& path_data)
@@ -658,10 +630,10 @@ bool EvalCheckAndMateSystem::isBlockPossible(GameStateContextComponent& game_sta
 
 		constexpr int IS_BLOCKABLE_VALUE = 4;
 
-		if (IS_BLOCKABLE == IS_BLOCKABLE_VALUE)
+		/*if (IS_BLOCKABLE == IS_BLOCKABLE_VALUE)
 		{
 			return true;
-		}
+		}*/
 	}
 
 	return false;
