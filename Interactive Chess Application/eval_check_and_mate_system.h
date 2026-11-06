@@ -54,6 +54,7 @@ private:
 		bool IF_KING{};
 	};
 
+
 	struct PickedPiecesComponent
 	{
 		int imposed_check_sq_idx{};
@@ -69,13 +70,20 @@ private:
 		uint64_t defender_color{};
 	};
 
+	struct ValidPiecePlacementsContext
+	{
+		const uint64_t& VALID_PIECE_PLACEMENT;
+		const uint64_t& ALLY_KING_MASK;
+	};
+
 	static inline SwitchTeamsComponent getSwitchedTeamsData(const GameStateContextComponent&);
 	static inline void switchTeams(GameStateContextComponent&, const SwitchTeamsComponent&, const uint64_t);
 	static int isSquareAttackedSimulated(GameStateContextComponent&, uint64_t, const AttackEvalFlagsInfo::eval_flags, const uint64_t, ExtractPathComponent&);
 	static inline constexpr int getPieceIndex(const int, const int);
 	static PickedPiecesComponent findPickedPieces(const GameStateContextComponent&, const AttackEvalFlagsInfo::eval_flags, const uint64_t);
-	static int evalSquareAttack(GameStateContextComponent&);
-	static int evalSquareAttack(GameStateContextComponent&, uint64_t, uint64_t, const CheckTypeFlagsInfo::eval_flags, const EvalBoardStateEditInfo::eval_flags, const int, ExtractPathComponent&);
+	static int evalSquareAttack(GameStateContextComponent&, uint64_t, CheckTypeFlagsInfo::eval_flags, const int, ExtractPathComponent&);
+	//static int evalCheckmateAttack(GameStateContextComponent&, uint64_t, uint64_t, const CheckTypeFlagsInfo::eval_flags, const EvalBoardStateEditInfo::eval_flags, const int, ExtractPathComponent&);
+	static int evalOneBlocker(GameStateContextComponent&, ValidPiecePlacementsContext&, CheckTypeFlagsInfo::eval_flags, const int, ExtractPathComponent&);
 	static uint64_t selectPlacementMask(GameStateContextComponent&, EvalBoardStateEditInfo::eval_flags, const uint64_t, const uint64_t);
 	static int simSquareAttack(GameStateContextComponent&, uint64_t, CheckTypeFlagsInfo::eval_flags, int, ExtractPathComponent&);
 	static int isSquareAttacked(GameStateContextComponent&, const int, ExtractPathComponent&);
