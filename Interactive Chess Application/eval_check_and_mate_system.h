@@ -76,6 +76,14 @@ private:
 		const uint64_t& ALLY_KING_MASK;
 	};
 
+	struct HoldMovementDataComponent
+	{
+		int const HOLD_PICKED_IDX{};
+		int const HOLD_PICKED_PIECE_TYPE{};
+		int const HOLD_PLACEMENT_SQUARE_IDX{};
+		int const HOLD_PLACED_PIECE_TYPE{};
+	};
+
 	static inline SwitchTeamsComponent getSwitchedTeamsData(const GameStateContextComponent&);
 	static inline void switchTeams(GameStateContextComponent&, const SwitchTeamsComponent&, const uint64_t);
 	static int isSquareAttackedSimulated(GameStateContextComponent&, uint64_t, const AttackEvalFlagsInfo::eval_flags, const uint64_t, ExtractPathComponent&);
@@ -84,14 +92,17 @@ private:
 	static int evalSquareAttack(GameStateContextComponent&, uint64_t, CheckTypeFlagsInfo::eval_flags, const int, ExtractPathComponent&);
 	//static int evalCheckmateAttack(GameStateContextComponent&, uint64_t, uint64_t, const CheckTypeFlagsInfo::eval_flags, const EvalBoardStateEditInfo::eval_flags, const int, ExtractPathComponent&);
 	static int evalOneBlocker(GameStateContextComponent&, ValidPiecePlacementsContext&, CheckTypeFlagsInfo::eval_flags, const int, ExtractPathComponent&);
-	static uint64_t selectPlacementMask(GameStateContextComponent&, EvalBoardStateEditInfo::eval_flags, const uint64_t, const uint64_t);
+	//static uint64_t selectPlacementMask(GameStateContextComponent&, EvalBoardStateEditInfo::eval_flags, const uint64_t, const uint64_t);
 	static int simSquareAttack(GameStateContextComponent&, uint64_t, CheckTypeFlagsInfo::eval_flags, int, ExtractPathComponent&);
 	static int isSquareAttacked(GameStateContextComponent&, const int, ExtractPathComponent&);
 	static bool isAnyPieceAttacking(GameStateContextComponent&, pieceInfo::piece, ExtractPathComponent&, bool);
+
+
+	static inline void setNewPickedSquareIdx(GameStateContextComponent&, const int);
+	static void findBlockers();
 	static bool evalBlockerEligibility(GameStateContextComponent&, uint64_t, const int, const uint64_t);
 	static inline int calcPickedPieceType(const GameStateContextComponent&, uint64_t);
 	static inline uint64_t calcAllyKingMask(const GameStateContextComponent&);
-
 	static int isKingCheckmate(GameStateContextComponent&, const uint64_t);
 	static uint64_t getAttackerPath(GameStateContextComponent&);
 	static bool isBlockPossible(GameStateContextComponent&, const uint64_t, uint64_t);
