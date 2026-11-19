@@ -146,6 +146,9 @@
     <ClInclude Include="eval_board_state_edit_info.h">
       <Filter>Header Files\Namespaces</Filter>
     </ClInclude>
+    <ClInclude Include="check_or_checkmate_block.h">
+      <Filter>Header Files\Namespaces</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="findings.md">

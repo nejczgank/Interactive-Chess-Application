@@ -2,14 +2,14 @@
 
 InitGameState::InitGameState() {
 
-	white_pawns_ = 0x1800e700; //0x000000000000FF00;
+	white_pawns_ = 0x000000000000FF00;//0x1800e700; //0x000000000000FF00;
 	white_knights_   = 0x0000000000000042;
 	white_rooks_     = 0x0000000000000081;
 	white_bishops_   = 0x0000000000000024;
 	white_queens_    = 0x0000000000000008;
 	white_king_      = 0x0000000000000010;
 
-	black_pawns_ = 0xef100000000000;  //0x00FF000000000000;
+	black_pawns_ = 0x00FF000000000000;//0xef100000000000;  //0x00FF000000000000;
 	black_knights_   = 0x4200000000000000;
 	black_rooks_	 = 0x8100000000000000;
 	black_bishops_	 = 0x2400000000000000;

@@ -55,8 +55,8 @@ int main() {
 	};
 
 	//Initialize player turn state
-	bool white_turn = 0;//1;
-	bool black_turn = 1;//0;
+	bool white_turn = 1;//0;//1;
+	bool black_turn = 0;//1;//0;
 
 	while (true) {
 
@@ -106,7 +106,7 @@ int main() {
 		
 		//obtain an evaluation regarding checks or checkmates
 		const int check = EvalCheckAndMateSystem::checkmateHandler(game_state_ctx, VALID_PIECE_PLACEMENT);
-
+		std::cout << check << '\n';
 		//---------------//---------------//--------------- UPDATE STATE ---------------//---------------//---------------//---------------
 
 		//Update the board with new values

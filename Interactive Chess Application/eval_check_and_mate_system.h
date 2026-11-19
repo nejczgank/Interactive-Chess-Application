@@ -5,6 +5,7 @@
 #include <cmath>
 #include <algorithm>
 #include <iterator>
+#include <span>
 #include "occupancy_info.h"
 #include "init_game_state.h"
 #include "move_validation_system.h"
@@ -22,6 +23,8 @@
 #include "extract_path_component.h"
 #include "check_type_eval_flags_info.h"
 #include "eval_board_state_edit_info.h"
+#include "check_or_checkmate_block.h"
+
 
 class EvalCheckAndMateSystem {
 public:
@@ -35,25 +38,6 @@ private:
 		uint64_t allies{};
 		uint64_t enemies{};
 	};
-
-	struct CheckTypeColorComponent
-	{
-		int ATTACKER_COLOR{};
-		int DEFENDER_COLOR{};
-		int ATTACKER_COLOR_OFFSET{};
-		int DEFENDER_COLOR_OFFSET{};
-		int ATK_PIECES[6]{};
-		int DEF_PIECES[6]{};
-		uint64_t VALID_KING_MOVES{};
-	};
-
-	struct CheckTypeFrameComponent
-	{
-		CheckTypeColorComponent first_check_color_type{};
-		CheckTypeColorComponent second_check_color_type{};
-		bool IF_KING{};
-	};
-
 
 	struct PickedPiecesComponent
 	{
@@ -92,59 +76,34 @@ private:
 		const uint64_t& PROCESSED_SQ;
 	};
 
-	static inline SwitchTeamsComponent getSwitchedTeamsData(const GameStateContextComponent&);
-	static inline void switchTeams(GameStateContextComponent&, const SwitchTeamsComponent&, const uint64_t);
-	static int isSquareAttackedSimulated(GameStateContextComponent&, uint64_t, const AttackEvalFlagsInfo::eval_flags, const uint64_t, ExtractPathComponent&);
+	//determine calculation type
 	static inline constexpr int getPieceIndex(const int, const int);
 	static PickedPiecesComponent findPickedPieces(const GameStateContextComponent&, const AttackEvalFlagsInfo::eval_flags, const uint64_t);
-	static int evalSquareAttack(GameStateContextComponent&, uint64_t, CheckTypeFlagsInfo::eval_flags, const int, ExtractPathComponent&);
-	//static int evalCheckmateAttack(GameStateContextComponent&, uint64_t, uint64_t, const CheckTypeFlagsInfo::eval_flags, const EvalBoardStateEditInfo::eval_flags, const int, ExtractPathComponent&);
-	static int evalOneBlocker(GameStateContextComponent&, ValidPiecePlacementsContext&, CheckTypeFlagsInfo::eval_flags, const int, ExtractPathComponent&);
-	//static uint64_t selectPlacementMask(GameStateContextComponent&, EvalBoardStateEditInfo::eval_flags, const uint64_t, const uint64_t);
+	static int isSquareAttackedSimulated(GameStateContextComponent&, uint64_t, const AttackEvalFlagsInfo::eval_flags, const uint64_t, ExtractPathComponent&);
 	static int simSquareAttack(GameStateContextComponent&, uint64_t, CheckTypeFlagsInfo::eval_flags, int, ExtractPathComponent&);
-	static int isSquareAttacked(GameStateContextComponent&, const int, ExtractPathComponent&);
-	static bool isAnyPieceAttacking(GameStateContextComponent&, pieceInfo::piece, ExtractPathComponent&, bool);
 
-	static inline void setNewPickedSquareIdx(GameStateContextComponent&, const int);
-	static uint64_t findBlockers(GameStateContextComponent&, const int);
-	static bool processBlockers(GameStateContextComponent&, ProcessBlockersContext&, ExtractPathComponent&);
-	static inline void performSwitch(GameStateContextComponent&, SwitchTeamsComponent&);
-	static inline void restoreMovementState(GameStateContextComponent&, SwitchTeamsComponent&, HoldMovementDataComponent&);
+	//imposed, discovered full calculation
+	static inline SwitchTeamsComponent getSwitchedTeamsData(const GameStateContextComponent&);
+	static inline void switchTeams(GameStateContextComponent&, const SwitchTeamsComponent&, const uint64_t);
+	static int evalSquareAttack(GameStateContextComponent&, uint64_t, CheckTypeFlagsInfo::eval_flags, const int, ExtractPathComponent&, CheckOrCheckmateBlock::eval_flags);
+	static int isSquareAttacked(GameStateContextComponent&, const int, ExtractPathComponent&, CheckOrCheckmateBlock::eval_flags);
+	static bool isAnyPieceAttacking(GameStateContextComponent&, pieceInfo::piece, ExtractPathComponent&, bool);
+	
+	//finding eligible blockers when a checkmate occurs
 	static bool evalBlockerEligibility(GameStateContextComponent&, uint64_t, const int, const uint64_t, ExtractPathComponent&);
-	static inline int calcPickedPieceType(const GameStateContextComponent&, uint64_t);
+	static uint64_t findBlockers(GameStateContextComponent&, const int);
+	static inline void setNewPickedSquareIdx(GameStateContextComponent&, const int);
+	static inline void performSwitch(GameStateContextComponent&, SwitchTeamsComponent&);
 	static inline uint64_t calcAllyKingMask(const GameStateContextComponent&);
+	static bool processBlockers(GameStateContextComponent&, ProcessBlockersContext&, ExtractPathComponent&);
+	static inline int calcPickedPieceType(const GameStateContextComponent&, uint64_t);
+	static int evalOneBlocker(GameStateContextComponent&, ValidPiecePlacementsContext&, CheckTypeFlagsInfo::eval_flags, const int, ExtractPathComponent&);
+	static inline void restoreMovementState(GameStateContextComponent&, SwitchTeamsComponent&, HoldMovementDataComponent&);
+	
+	//checkmate pipeline
 	static int isKingCheckmate(GameStateContextComponent&, const uint64_t);
 	static uint64_t getAttackerPath(GameStateContextComponent&);
 	static bool isBlockPossible(GameStateContextComponent&, const uint64_t, uint64_t);
 	static bool canKingMove();
-
-	////struct setters
-	//static void setCheckSimFrame(InitGameState::Board&, MovementData&, PositionalEvalComponent&, CheckSimFrameComponent&);
-	//static void setImpositionCheckColor(const MovementData&, CheckTypeColorComponent&, const uint64_t);
-	//static void setDiscoverCheckColor(const MovementData&, CheckTypeColorComponent&, const uint64_t);
-	//static void setCheckType(CheckTypeFrameComponent&, const CheckTypeColorComponent&, const CheckTypeColorComponent&, bool);
-
-	////check
-	//static int isKingCheck(CheckSimFrameComponent&, CheckTypeFrameComponent&, ExtractRayTypeInfo::ray_type);
-	//static bool findCheck(const CheckSimFrameComponent&, CheckTypeColorComponent&, const bool, ExtractRayTypeInfo::ray_type);
-	//static FoundOccupation findOccupation(const CheckSimFrameComponent&, const int, const int, bool);
-	//static int findTargetIndex(const CheckSimFrameComponent&, const int(&)[6], bool);
-	//static void isPieceAtkHelper(MovementData&, const CheckSimFrameComponent&, TracePathComponent&, bool&, const int, const int(&)[6], const int(&)[6], ExtractRayTypeInfo::ray_type);
-	//static void isPieceKingAtkHelper(MovementData&, const CheckSimFrameComponent&, CheckTypeColorComponent&, TracePathComponent&, bool&, const int, const int(&)[6], const int(&)[6], ExtractRayTypeInfo::ray_type, const bool);
-
-	////checkmate
-	//static TracePathComponent findAttackPathHelper(const CheckSimFrameComponent&, const CheckTypeColorComponent&, StalemateDataComponent&);
-	//static bool isKingCheckmate(const CheckSimFrameComponent&, CheckTypeFrameComponent&, StalemateDataComponent&);
-
-	//checkmate
-	/*static bool isKingCheckmate(EvalCheckAndMateComponent&, StalemateDataComponent&);
-	static uint64_t findAttackPathHelper(EvalCheckAndMateComponent&);*/
-
-	/*static int isKingCheck(const InitGameState::Board&, const MovementData&, const uint64_t, const int, const int, const bool);
-	static void isPieceAtkHelper(const InitGameState::Board&, MovementData&, bool&, const int, const int(&)[6], const int(&)[6]);
-	static bool findCheck(const InitGameState::Board&, MovementData& new_movement_data, const int, const int, const int(&)[6], const int(&)[6], const bool);
-	static void findTargetIndex(const InitGameState::Board&, MovementData&, const int(&)[6], bool);
-	static void findOccupation(const InitGameState::Board&, MovementData&, const int, const int, const bool);
-	static bool isKingCheckmate(const InitGameState::Board&, const MovementData&, const uint64_t, StalemateDataComponent&, const int, const int);*/
 };
 

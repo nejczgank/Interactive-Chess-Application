@@ -263,10 +263,6 @@ void BoardUpdatingSystem::enPassantDetectionHelper(const InitGameState::Board& b
 	movement_data.passant_mask = WHITE_PASSANT_MASK | BLACK_PASSANT_MASK;
 }
 
-//POSSIBLE SOLUTION
-//somehow flatten this using bitwise hacks instead of storing state
-//i could just things another way as described below:
-
 void BoardUpdatingSystem::reverseMovement(GameStateContextComponent& game_state_ctx, uint64_t VALID_PIECE_PLACEMENT)
 {
 	/*

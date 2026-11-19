@@ -241,6 +241,48 @@ uint64_t MoveValidationSystem::findPawnAttacks(const InitGameState::Board& board
 	return REGULAR_ATTACK_MASK;
 }
 
+uint64_t MoveValidationSystem::advancePawn(const InitGameState::Board& board, const MovementData& movement_data)
+{
+	/*
+	* used for determining whether a pawn can block an incoming check
+	*/
+
+	using enum occupancyInfo::occupancy;
+	using enum pieceInfo::piece;
+
+	const uint64_t IF_TARGETING_WHITE = -(movement_data.defender_color == white);
+	const uint64_t IF_TARGETING_BLACK = -(movement_data.defender_color == black);
+
+	constexpr uint64_t VERT_ADJUST  = 8;
+	const uint64_t MOVE_ONE_SQ_DOWN = ((1ULL << movement_data.picked_square_idx) >> VERT_ADJUST);
+	const uint64_t MOVE_ONE_SQ_UP   = (1ULL << (movement_data.picked_square_idx + VERT_ADJUST));
+
+	const uint64_t ONE_SQ_MOVE_FOUND = (IF_TARGETING_WHITE & MOVE_ONE_SQ_DOWN & board.pieces[white_pawn]) | 
+									   (IF_TARGETING_BLACK & MOVE_ONE_SQ_UP   & board.pieces[black_pawn]);
+
+	constexpr int RANKS = 8;
+	constexpr int INIT_WHITE_PAWNS_RANK = 1;
+	constexpr int INIT_BLACK_PAWNS_RANK = 6;
+
+	const int MOVE_TWO_RANKS_UP   = movement_data.picked_square_idx + VERT_ADJUST * 2;
+	const int MOVE_TWO_RANKS_DOWN = movement_data.picked_square_idx - VERT_ADJUST * 2;
+
+	const uint64_t IF_RANK_MATCH = -((INIT_WHITE_PAWNS_RANK == MOVE_TWO_RANKS_DOWN) |
+									 (INIT_BLACK_PAWNS_RANK == MOVE_TWO_RANKS_UP));
+
+	const uint64_t IF_MOVE_ONE_SQ_DOWN_FREE = -(board.occupancy[std::countr_zero(MOVE_ONE_SQ_DOWN)] > 0);
+	const uint64_t IF_MOVE_ONE_SQ_UP_FREE   = -(board.occupancy[std::countr_zero(MOVE_ONE_SQ_UP)]   > 0);
+
+	const uint64_t MOVE_TWO_SQ_DOWN = ((1ULL <<  movement_data.picked_square_idx) >> (VERT_ADJUST * 2));
+	const uint64_t MOVE_TWO_SQ_UP   = ( 1ULL << (movement_data.picked_square_idx  +  (VERT_ADJUST * 2)));
+
+	const uint64_t TWO_SQ_MOVE_FOUND =  IF_RANK_MATCH & 
+									   (IF_MOVE_ONE_SQ_DOWN_FREE & MOVE_TWO_SQ_DOWN & board.pieces[white_pawn]) |
+									   (IF_MOVE_ONE_SQ_DOWN_FREE & MOVE_TWO_SQ_DOWN & board.pieces[black_pawn]);
+
+	return ONE_SQ_MOVE_FOUND | TWO_SQ_MOVE_FOUND;
+}
+
 uint64_t MoveValidationSystem::pawnValidation(const InitGameState::Board& board, MovementData& movement_data, TracePathComponent& path_data, ExtractRayTypeInfo::ray_type)
 {
 	/*
