@@ -114,7 +114,16 @@ int EvalCheckAndMateSystem::simSquareAttack(GameStateContextComponent& game_stat
 	//enact the exact move the player just made to test wether it constitutes a check
 	BoardUpdatingSystem::updateBoards(game_state_ctx, VALID_PIECE_PLACEMENT);
 
-	const int ATTACK_VALUE = evalSquareAttack(game_state_ctx, VALID_PIECE_PLACEMENT, eval_flags, PICKED_SQ_IDX, path_data, check);
+	//find the position of the allied king
+	using enum pieceInfo::piece;
+	const auto& md = game_state_ctx.movement_data;
+	const int ALLY_KING_NOW = std::countr_zero(game_state_ctx.board.pieces[getPieceIndex(king, md.attacker_color)]);
+
+	//ensure that the king gets updated for discovered checks, otherwise keep the picked idx
+	const int IF_IMPOSING = -static_cast<int>(eval_flags);
+	const int SQ_IDX = (PICKED_SQ_IDX & IF_IMPOSING) | (ALLY_KING_NOW & ~IF_IMPOSING);
+
+	const int ATTACK_VALUE = evalSquareAttack(game_state_ctx, VALID_PIECE_PLACEMENT, eval_flags, SQ_IDX, path_data, check);
 
 	//reverse the move to bring back the inital state. board_updating_sytem later decided whether a move can occur or not
 	BoardUpdatingSystem::reverseMovement(game_state_ctx, VALID_PIECE_PLACEMENT);
@@ -222,7 +231,7 @@ int EvalCheckAndMateSystem::isSquareAttacked(GameStateContextComponent& game_sta
 	bool is_attack_found = false;
 	
 	//check for diagonal attacks
-	const uint64_t IF_ENEMY_PRESENT = 0ULL-(BOARD.occupancy[movement_data.attacker_color] & (1ULL << PICKED_SQ_IDX)); //check if the picked square is occupied by the attacker
+	const uint64_t IF_ENEMY_PRESENT = 0ULL-((BOARD.occupancy[movement_data.attacker_color] & (1ULL << PICKED_SQ_IDX)) > 0); //check if the picked square is occupied by the attacker
 	const uint64_t VALID_PAWN_ATTACKS = MoveValidationSystem::findPawnAttacks(BOARD, movement_data);
 	const uint64_t ENEMY_PAWN_LOCATION = BOARD.pieces[getPieceIndex(pawn, movement_data.defender_color)];
 	const bool ATTACK_POSSIBLE = (IF_ENEMY_PRESENT & VALID_PAWN_ATTACKS & ENEMY_PAWN_LOCATION) > 0;
@@ -234,7 +243,7 @@ int EvalCheckAndMateSystem::isSquareAttacked(GameStateContextComponent& game_sta
 	//check for pawn advancements blocking a checkmate
 	const uint64_t VALID_PAWN_ADVANCEMENTS = MoveValidationSystem::advancePawn(BOARD, movement_data);
 	const uint64_t IF_CHECKMATE_BLOCK = -(check_or_checkmate_block == checkmate_block);
-	is_attack_found |= -(VALID_PAWN_ADVANCEMENTS > 0) & IF_CHECKMATE_BLOCK;
+	is_attack_found |= ( -(VALID_PAWN_ADVANCEMENTS > 0) & IF_CHECKMATE_BLOCK);
 
 	//check sliding piece attacks
 	for(const auto piece : ATTACKERS)
@@ -492,23 +501,20 @@ inline void EvalCheckAndMateSystem::restoreMovementState(GameStateContextCompone
 //checkmate pipeline
 int EvalCheckAndMateSystem::isKingCheckmate(GameStateContextComponent& game_state_ctx, const uint64_t VALID_PIECE_PLACEMENT)
 {
-	uint64_t ATTACK_PATH = getAttackerPath(game_state_ctx);
-	//what about knights? //knights can't be blocked, only overtaken. blocking only works for sliding pieces
-
-	bool isBlock = isBlockPossible(game_state_ctx, VALID_PIECE_PLACEMENT, ATTACK_PATH);
+	bool isBlock = isBlockPossible(game_state_ctx, VALID_PIECE_PLACEMENT);
 
 	// 1. ACCOUNT FOR BLOCKERS
 	if (isBlock == true)
 	{
 		return false;
 	}
-
+	
 	//run code to see if there's any pieces that could block this attack
 	// - once you find a move also check whether it causes a discovered check, if so discard it
 	// - (king should also work under the discovered system, however you must ensure it doesn't move within the radius of an enemy king)
 	// - en passant can cause a discovered check
 	
-	bool kingMove = canKingMove();
+	bool kingMove = canKingMove(game_state_ctx);
 
 	//2. ACCOUNT FOR POSSIBLE KING MOVES
 	if (kingMove == true)
@@ -567,11 +573,14 @@ uint64_t EvalCheckAndMateSystem::getAttackerPath(GameStateContextComponent& game
 	return ATTACK_PATH;
 }
 
-bool EvalCheckAndMateSystem::isBlockPossible(GameStateContextComponent& game_state_ctx, const uint64_t VALID_PIECE_PLACEMENT, uint64_t ATTACK_PATH)
+bool EvalCheckAndMateSystem::isBlockPossible(GameStateContextComponent& game_state_ctx, const uint64_t VALID_PIECE_PLACEMENT)
 {
 	using enum AttackEvalFlagsInfo::eval_flags;
 	using enum ProcessedSquareInfo::squareInfo;
 	using enum ExtractRayTypeInfo::ray_type;
+
+	//get exact path where an allied piece can move to nullify a check
+	uint64_t ATTACK_PATH = getAttackerPath(game_state_ctx);
 
 	ExtractPathComponent path_data{ {}, attack_ray };
 
@@ -596,21 +605,158 @@ bool EvalCheckAndMateSystem::isBlockPossible(GameStateContextComponent& game_sta
 	return false;
 }
 
-bool EvalCheckAndMateSystem::canKingMove()
+bool EvalCheckAndMateSystem::canKingMove(GameStateContextComponent& game_state_ctx)
 {
-	//okay so here you do a similar thing. first you make the system start up and then have it 
+	using enum ExtractRayTypeInfo::ray_type;
+	using enum pieceInfo::piece;
+	using enum CheckTypeFlagsInfo::eval_flags;
+	using enum CheckOrCheckmateBlock::eval_flags;
 
-	return 0;
+	auto& [BOARD, movement_data, _1, _2] = game_state_ctx;
+
+	//hold previous state
+	HoldMovementDataComponent hold_movement_data =
+	{
+		movement_data.picked_square_idx,
+		movement_data.picked_piece_type,
+		movement_data.placement_square_idx,
+		movement_data.placed_piece_type
+	};
+	
+	SwitchTeamsComponent switch_teams_sim{};
+
+	KingMovementComponent king_move_info = findKingMoves(game_state_ctx, switch_teams_sim, hold_movement_data);
+	auto& [king_moves, king_pos, king_board] = king_move_info;
+
+	ExtractPathComponent extr_pd_sim{ {}, attack_ray };
+
+	constexpr int DISCOVERED_VALUE = 2;
+
+	while (king_moves > 0)
+	{
+		//Isolate the least significant square
+		uint64_t processed_square = king_moves & (0ULL - king_moves);
+
+		//Remove the least significant square for subsequent iterations
+		king_moves &= ~processed_square;
+
+		//adjust movement data to where the king is set to move
+		movement_data.picked_square_idx = king_pos;						//where the king currently resides
+		int processed_square_idx = std::countr_zero(processed_square);
+		movement_data.placement_square_idx = processed_square_idx;		//where the king is about to move
+		movement_data.picked_piece_type = calcPickedPieceType(game_state_ctx, king_board);
+		movement_data.placed_piece_type = -1;
+
+		//move the king
+		performSwitch(game_state_ctx, switch_teams_sim);
+		BoardUpdatingSystem::updateBoards(game_state_ctx, processed_square);
+		performSwitch(game_state_ctx, switch_teams_sim);
+
+		Display::displayBoard(&BOARD);
+
+		movement_data.picked_piece_type = hold_movement_data.HOLD_PICKED_PIECE_TYPE;
+		movement_data.placed_piece_type = hold_movement_data.HOLD_PLACED_PIECE_TYPE;
+
+		////set where the previously moved attacker 
+
+		////search for discovered checks
+		const int ALLY_KING_NOW = std::countr_zero(game_state_ctx.board.pieces[getPieceIndex(king, movement_data.defender_color)]);
+		movement_data.picked_square_idx = ALLY_KING_NOW;
+		movement_data.placement_square_idx = hold_movement_data.HOLD_PLACEMENT_SQUARE_IDX;
+
+		int DISCOVERED = evalSquareAttack(game_state_ctx, processed_square, imposing, ALLY_KING_NOW, extr_pd_sim, check);
+
+		//movement_data.placement_square_idx = king_pos;
+
+		movement_data.picked_square_idx = king_pos;
+		movement_data.placement_square_idx = processed_square_idx;
+		movement_data.picked_piece_type = calcPickedPieceType(game_state_ctx, processed_square);
+		movement_data.placed_piece_type = -1;
+
+		//reverse the king move
+		performSwitch(game_state_ctx, switch_teams_sim);
+		BoardUpdatingSystem::reverseMovement(game_state_ctx, processed_square);
+		performSwitch(game_state_ctx, switch_teams_sim);
+
+		Display::displayBoard(&BOARD);
+
+		//int DISCOVERED = simSquareAttack(game_state_ctx, processed_square, discovered, king_pos, extr_pd_sim);
+
+		//performSwitch(game_state_ctx, switch_teams_sim);
+		//evaluate whether at least one avaiable king reposition exists to nullify checkmate
+		if (DISCOVERED != DISCOVERED_VALUE)
+		{
+			//BoardUpdatingSystem::reverseMovement(game_state_ctx, (1ULL << movement_data.placement_square_idx));
+
+			//reverse board move
+			movement_data.placed_piece_type = -1;
+			movement_data.picked_square_idx = hold_movement_data.HOLD_PICKED_IDX;
+			movement_data.picked_piece_type = hold_movement_data.HOLD_PICKED_PIECE_TYPE;
+			movement_data.placement_square_idx = hold_movement_data.HOLD_PLACEMENT_SQUARE_IDX;
+
+			BoardUpdatingSystem::reverseMovement(game_state_ctx, (1ULL << movement_data.picked_square_idx));
+			movement_data.placed_piece_type = hold_movement_data.HOLD_PLACED_PIECE_TYPE;
+
+			return true;
+		}
+	}
+
+	movement_data.placed_piece_type = -1;
+	movement_data.picked_square_idx = hold_movement_data.HOLD_PICKED_IDX;
+	movement_data.picked_piece_type = hold_movement_data.HOLD_PICKED_PIECE_TYPE;
+	movement_data.placement_square_idx = hold_movement_data.HOLD_PLACEMENT_SQUARE_IDX;
+
+	BoardUpdatingSystem::reverseMovement(game_state_ctx, (1ULL << movement_data.picked_square_idx));
+
+	movement_data.placed_piece_type = hold_movement_data.HOLD_PLACED_PIECE_TYPE;
+
+	return false;
 }
+
+EvalCheckAndMateSystem::KingMovementComponent EvalCheckAndMateSystem::findKingMoves(GameStateContextComponent& game_state_ctx, SwitchTeamsComponent& switch_teams_sim, HoldMovementDataComponent& hold_movement_data)
+{
+	using enum ExtractRayTypeInfo::ray_type;
+
+	auto& [BOARD, movement_data, _1, _2] = game_state_ctx;
+
+	//enact current movement
+	BoardUpdatingSystem::updateBoards(game_state_ctx, (1ULL << movement_data.placement_square_idx));
+
+	//switch teams to direct which king we're extracting
+	performSwitch(game_state_ctx, switch_teams_sim);
+
+	//adjust the movement data so that movement validation can extract the exact directions where the king can move
+	uint64_t processed_king_square = calcAllyKingMask(game_state_ctx);
+	int king_pos = std::countr_zero(processed_king_square);
+	movement_data.picked_square_idx = king_pos;
+
+	//find the exact directions where the allied king can move to dodge a checkmate
+	TracePathComponent trace_pd_sim{};
+	movement_data.placement_square_idx = std::countr_zero(processed_king_square);
+	uint64_t king_moves = MoveValidationSystem::kingValidation(BOARD, movement_data, trace_pd_sim, attack_ray);
+
+	//reinstate teams
+	//revert movement state
+	restoreMovementState(game_state_ctx, switch_teams_sim, hold_movement_data);
+
+	return 
+	{
+		king_moves,
+		king_pos,
+		processed_king_square
+	};
+}
+
+//test and debug tomorrow
 
 //for tomorrow:
 // PRIORITY FIXES
-//1. -1 should only be for empty squares... check if you messed up
-//2. finish canKingMove
-//3. test the code
-//5. handle checkmate in the main game loop
-//6. figure out whether to add en-passant as well or nah
-//7. clean up the comments mess
-//8. clean up dead structs in header
-//9. combine namespaces maybe
-//10. merge the refactor into dev branch and then pull from the dev branch into main branch
+//1. -1 should only be for empty squares... check if you messed up IT'S FINE
+//2. finish canKingMove DONE
+//3. test the code DONE
+//5. handle checkmate in the main game loop DONE
+//6. figure out whether to add en-passant as well or nah NAHHH
+//7. clean up the comments mess OKAY
+//8. clean up dead structs in header DONE
+//9. combine namespaces maybe NAHHH
+//10. merge the refactor into dev branch and then pull from the dev branch into main branch TODO

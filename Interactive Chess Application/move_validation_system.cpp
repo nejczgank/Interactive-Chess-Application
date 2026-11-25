@@ -276,9 +276,9 @@ uint64_t MoveValidationSystem::advancePawn(const InitGameState::Board& board, co
 	const uint64_t MOVE_TWO_SQ_DOWN = ((1ULL <<  movement_data.picked_square_idx) >> (VERT_ADJUST * 2));
 	const uint64_t MOVE_TWO_SQ_UP   = ( 1ULL << (movement_data.picked_square_idx  +  (VERT_ADJUST * 2)));
 
-	const uint64_t TWO_SQ_MOVE_FOUND =  IF_RANK_MATCH & 
-									   (IF_MOVE_ONE_SQ_DOWN_FREE & MOVE_TWO_SQ_DOWN & board.pieces[white_pawn]) |
-									   (IF_MOVE_ONE_SQ_DOWN_FREE & MOVE_TWO_SQ_DOWN & board.pieces[black_pawn]);
+	const uint64_t TWO_SQ_MOVE_FOUND = IF_RANK_MATCH & 
+									   ((IF_MOVE_ONE_SQ_DOWN_FREE & MOVE_TWO_SQ_DOWN & board.pieces[white_pawn]) |
+									   (IF_MOVE_ONE_SQ_UP_FREE & MOVE_TWO_SQ_UP & board.pieces[black_pawn]));
 
 	return ONE_SQ_MOVE_FOUND | TWO_SQ_MOVE_FOUND;
 }

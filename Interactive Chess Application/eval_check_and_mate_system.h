@@ -76,6 +76,13 @@ private:
 		const uint64_t& PROCESSED_SQ;
 	};
 
+	struct KingMovementComponent
+	{
+		uint64_t king_moves;
+		int king_pos;
+		uint64_t king_board;
+	};
+
 	//determine calculation type
 	static inline constexpr int getPieceIndex(const int, const int);
 	static PickedPiecesComponent findPickedPieces(const GameStateContextComponent&, const AttackEvalFlagsInfo::eval_flags, const uint64_t);
@@ -103,7 +110,8 @@ private:
 	//checkmate pipeline
 	static int isKingCheckmate(GameStateContextComponent&, const uint64_t);
 	static uint64_t getAttackerPath(GameStateContextComponent&);
-	static bool isBlockPossible(GameStateContextComponent&, const uint64_t, uint64_t);
-	static bool canKingMove();
+	static bool isBlockPossible(GameStateContextComponent&, const uint64_t);
+	static bool canKingMove(GameStateContextComponent&);
+	static KingMovementComponent findKingMoves(GameStateContextComponent&, SwitchTeamsComponent&, HoldMovementDataComponent&);
 };
 

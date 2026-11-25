@@ -19,12 +19,14 @@
 #include "extract_path_component.h"
 #include "check_type_eval_flags_info.h"
 #include "eval_board_state_edit_info.h"
+#include "check_result_flags_info.h"
 
 int main() {
 
 	//scoped enum declaration
 	using enum moveInfo::move;
 	using enum ExtractRayTypeInfo::ray_type;
+	using enum CheckResultFlagsInfo::eval_flags;
 
 	//Initialize game state
 	InitGameState init_board{};
@@ -55,11 +57,15 @@ int main() {
 	};
 
 	//Initialize player turn state
-	bool white_turn = 1;//0;//1;
-	bool black_turn = 0;//1;//0;
+	bool white_turn = 1;
+	bool black_turn = 0;
+
+	//Initialize checkmate data
+	std::string winner{};
+	int eval_check{};
+	int prev_check{};
 
 	while (true) {
-
 		//---------------//---------------//--------------- PREPERATION ---------------//---------------//---------------//---------------
 		//Draw board
 		Display::displayBoard(&board);
@@ -79,7 +85,6 @@ int main() {
 			PlayerInput::invalidPick();
 			continue;
 		}
-
 		//---------------//---------------//--------------- MOVEMENT VALIDATION ---------------//---------------//---------------//---------------
 		//Obtain movement data for the picked piece
 		GetMovementInfoSystem::pickingInfo(board, movement_data);
@@ -105,8 +110,31 @@ int main() {
 		//---------------//---------------//--------------- CHECK VALIDATION / GAME ENDING CONDITION ---------------//---------------//---------------//---------------
 		
 		//obtain an evaluation regarding checks or checkmates
-		const int check = EvalCheckAndMateSystem::checkmateHandler(game_state_ctx, VALID_PIECE_PLACEMENT);
-		std::cout << check << '\n';
+		eval_check = EvalCheckAndMateSystem::checkmateHandler(game_state_ctx, VALID_PIECE_PLACEMENT);
+
+		//determine check and update state of the game
+		switch (eval_check)
+		{
+		case discovered:
+			std::cout << "Illegal move. King exposed to an incoming attack\n";
+			continue;
+		case check:
+			if (prev_check == check)
+			{
+				std::cout << "Illegal move. Check not resolved\n";
+				continue;
+			}
+			std::cout << "Check\n";
+			break;
+		case checkmate:
+			BoardUpdatingSystem::updateBoards(game_state_ctx, VALID_PIECE_PLACEMENT);
+			Display::displayBoard(&board);
+			winner = movement_data.attacker_color == 0 ? "White" : "Black";
+			std::cout << "Checkmate " << winner << " wins!\n\n\n";
+			return 0;
+		};
+		std::cout << eval_check << '\n';
+
 		//---------------//---------------//--------------- UPDATE STATE ---------------//---------------//---------------//---------------
 
 		//Update the board with new values
@@ -115,6 +143,9 @@ int main() {
 		//Update turn state
 		white_turn ^= 1;
 		black_turn ^= 1;
+
+		//previous check state
+		prev_check = eval_check;
 		//---------------//---------------//---------------//---------------//---------------//---------------//---------------//---------------
 	}
 
