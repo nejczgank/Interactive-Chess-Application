@@ -113,5 +113,6 @@ private:
 	static bool isBlockPossible(GameStateContextComponent&, const uint64_t);
 	static bool canKingMove(GameStateContextComponent&);
 	static KingMovementComponent findKingMoves(GameStateContextComponent&, SwitchTeamsComponent&, HoldMovementDataComponent&);
+	static inline void kingMoveReversal(GameStateContextComponent&, HoldMovementDataComponent&);
 };
 

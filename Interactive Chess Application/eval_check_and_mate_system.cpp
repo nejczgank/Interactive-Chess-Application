@@ -607,6 +607,12 @@ bool EvalCheckAndMateSystem::isBlockPossible(GameStateContextComponent& game_sta
 
 bool EvalCheckAndMateSystem::canKingMove(GameStateContextComponent& game_state_ctx)
 {
+	/*
+	* find where the king can move and evaluate each spot based on whether 
+	* doing so would expose it to another attack. If there is at least one move available
+	* then checkmate becomes invalid
+	*/
+
 	using enum ExtractRayTypeInfo::ray_type;
 	using enum pieceInfo::piece;
 	using enum CheckTypeFlagsInfo::eval_flags;
@@ -623,12 +629,13 @@ bool EvalCheckAndMateSystem::canKingMove(GameStateContextComponent& game_state_c
 		movement_data.placed_piece_type
 	};
 	
+	//simulation structs used purely because they're required
 	SwitchTeamsComponent switch_teams_sim{};
+	ExtractPathComponent extr_pd_sim{ {}, attack_ray };
 
+	//locate empty slots the king can move to which aren't in proximity to an enemy king or occupied
 	KingMovementComponent king_move_info = findKingMoves(game_state_ctx, switch_teams_sim, hold_movement_data);
 	auto& [king_moves, king_pos, king_board] = king_move_info;
-
-	ExtractPathComponent extr_pd_sim{ {}, attack_ray };
 
 	constexpr int DISCOVERED_VALUE = 2;
 
@@ -652,22 +659,21 @@ bool EvalCheckAndMateSystem::canKingMove(GameStateContextComponent& game_state_c
 		BoardUpdatingSystem::updateBoards(game_state_ctx, processed_square);
 		performSwitch(game_state_ctx, switch_teams_sim);
 
-		Display::displayBoard(&BOARD);
-
+		//restore state
 		movement_data.picked_piece_type = hold_movement_data.HOLD_PICKED_PIECE_TYPE;
 		movement_data.placed_piece_type = hold_movement_data.HOLD_PLACED_PIECE_TYPE;
 
-		////set where the previously moved attacker 
-
-		////search for discovered checks
+		//search for where the allied king is located as of right now
 		const int ALLY_KING_NOW = std::countr_zero(game_state_ctx.board.pieces[getPieceIndex(king, movement_data.defender_color)]);
+
+		//adjust state to evaluate discovered checks
 		movement_data.picked_square_idx = ALLY_KING_NOW;
 		movement_data.placement_square_idx = hold_movement_data.HOLD_PLACEMENT_SQUARE_IDX;
 
+		//serach whether the exact place the king moved is unavailable
 		int DISCOVERED = evalSquareAttack(game_state_ctx, processed_square, imposing, ALLY_KING_NOW, extr_pd_sim, check);
 
-		//movement_data.placement_square_idx = king_pos;
-
+		//prepare state to reverse that exact king move
 		movement_data.picked_square_idx = king_pos;
 		movement_data.placement_square_idx = processed_square_idx;
 		movement_data.picked_piece_type = calcPickedPieceType(game_state_ctx, processed_square);
@@ -678,37 +684,15 @@ bool EvalCheckAndMateSystem::canKingMove(GameStateContextComponent& game_state_c
 		BoardUpdatingSystem::reverseMovement(game_state_ctx, processed_square);
 		performSwitch(game_state_ctx, switch_teams_sim);
 
-		Display::displayBoard(&BOARD);
-
-		//int DISCOVERED = simSquareAttack(game_state_ctx, processed_square, discovered, king_pos, extr_pd_sim);
-
-		//performSwitch(game_state_ctx, switch_teams_sim);
-		//evaluate whether at least one avaiable king reposition exists to nullify checkmate
 		if (DISCOVERED != DISCOVERED_VALUE)
 		{
-			//BoardUpdatingSystem::reverseMovement(game_state_ctx, (1ULL << movement_data.placement_square_idx));
-
-			//reverse board move
-			movement_data.placed_piece_type = -1;
-			movement_data.picked_square_idx = hold_movement_data.HOLD_PICKED_IDX;
-			movement_data.picked_piece_type = hold_movement_data.HOLD_PICKED_PIECE_TYPE;
-			movement_data.placement_square_idx = hold_movement_data.HOLD_PLACEMENT_SQUARE_IDX;
-
-			BoardUpdatingSystem::reverseMovement(game_state_ctx, (1ULL << movement_data.picked_square_idx));
-			movement_data.placed_piece_type = hold_movement_data.HOLD_PLACED_PIECE_TYPE;
+			kingMoveReversal(game_state_ctx, hold_movement_data);
 
 			return true;
 		}
 	}
 
-	movement_data.placed_piece_type = -1;
-	movement_data.picked_square_idx = hold_movement_data.HOLD_PICKED_IDX;
-	movement_data.picked_piece_type = hold_movement_data.HOLD_PICKED_PIECE_TYPE;
-	movement_data.placement_square_idx = hold_movement_data.HOLD_PLACEMENT_SQUARE_IDX;
-
-	BoardUpdatingSystem::reverseMovement(game_state_ctx, (1ULL << movement_data.picked_square_idx));
-
-	movement_data.placed_piece_type = hold_movement_data.HOLD_PLACED_PIECE_TYPE;
+	kingMoveReversal(game_state_ctx, hold_movement_data);
 
 	return false;
 }
@@ -745,6 +729,23 @@ EvalCheckAndMateSystem::KingMovementComponent EvalCheckAndMateSystem::findKingMo
 		king_pos,
 		processed_king_square
 	};
+}
+
+void EvalCheckAndMateSystem::kingMoveReversal(GameStateContextComponent& game_state_ctx, HoldMovementDataComponent& hold_movement_data)
+{
+	auto& [_1, movement_data, _2, _3] = game_state_ctx;
+
+	//restore the exact state before the current player move was made
+	movement_data.placed_piece_type = -1; //set placed piece type to enable movement reversal
+	movement_data.picked_square_idx = hold_movement_data.HOLD_PICKED_IDX;
+	movement_data.picked_piece_type = hold_movement_data.HOLD_PICKED_PIECE_TYPE;
+	movement_data.placement_square_idx = hold_movement_data.HOLD_PLACEMENT_SQUARE_IDX;
+
+	//enact movement reversal
+	BoardUpdatingSystem::reverseMovement(game_state_ctx, (1ULL << movement_data.picked_square_idx));
+
+	//restore placed piece type
+	movement_data.placed_piece_type = hold_movement_data.HOLD_PLACED_PIECE_TYPE;
 }
 
 //test and debug tomorrow
