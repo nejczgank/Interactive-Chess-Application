@@ -189,7 +189,6 @@ void BoardUpdatingSystem::placeNewPieceHelper(InitGameState::Board& board, Movem
 	
 	//placing the new piece
 	*board_selection[SEL_PIECE_IDX] |= VALID_PIECE_PLACEMENT;
-
 }
 
 uint64_t BoardUpdatingSystem::enPassantPrecondition(MovementData& movement_data)

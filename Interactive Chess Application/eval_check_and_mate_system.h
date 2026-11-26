@@ -78,10 +78,16 @@ private:
 
 	struct KingMovementComponent
 	{
-		uint64_t king_moves;
-		int king_pos;
-		uint64_t king_board;
+		uint64_t king_moves{};
+		int king_pos{};
+		uint64_t king_board{};
 	};
+
+	/*struct OvertakePieceComponent
+	{
+		uint64_t overtaken_piece_type{};
+
+	};*/
 
 	//determine calculation type
 	static inline constexpr int getPieceIndex(const int, const int);
@@ -114,5 +120,6 @@ private:
 	static bool canKingMove(GameStateContextComponent&);
 	static KingMovementComponent findKingMoves(GameStateContextComponent&, SwitchTeamsComponent&, HoldMovementDataComponent&);
 	static inline void kingMoveReversal(GameStateContextComponent&, HoldMovementDataComponent&);
+	static inline int calcPieceTypeInfo(GameStateContextComponent&, uint64_t);
 };
 

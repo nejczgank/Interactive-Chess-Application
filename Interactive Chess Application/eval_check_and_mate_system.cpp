@@ -652,7 +652,14 @@ bool EvalCheckAndMateSystem::canKingMove(GameStateContextComponent& game_state_c
 		int processed_square_idx = std::countr_zero(processed_square);
 		movement_data.placement_square_idx = processed_square_idx;		//where the king is about to move
 		movement_data.picked_piece_type = calcPickedPieceType(game_state_ctx, king_board);
-		movement_data.placed_piece_type = -1;
+
+		//check what piece exists at the placement square if any
+		//subsequently adjust place piece type to account for variation
+
+		//movement_data.placed_piece_type = -1;
+		movement_data.placed_piece_type = calcPieceTypeInfo(game_state_ctx, processed_square);
+
+		const int HOLD_OVERTAKEN_PIECE_TYPE = movement_data.placed_piece_type;//used for subsequent reversal 
 
 		//move the king
 		performSwitch(game_state_ctx, switch_teams_sim);
@@ -660,24 +667,26 @@ bool EvalCheckAndMateSystem::canKingMove(GameStateContextComponent& game_state_c
 		performSwitch(game_state_ctx, switch_teams_sim);
 
 		//restore state
-		movement_data.picked_piece_type = hold_movement_data.HOLD_PICKED_PIECE_TYPE;
-		movement_data.placed_piece_type = hold_movement_data.HOLD_PLACED_PIECE_TYPE;
+		/*movement_data.picked_piece_type = hold_movement_data.HOLD_PICKED_PIECE_TYPE;
+		movement_data.placed_piece_type = hold_movement_data.HOLD_PLACED_PIECE_TYPE;*/
 
 		//search for where the allied king is located as of right now
-		const int ALLY_KING_NOW = std::countr_zero(game_state_ctx.board.pieces[getPieceIndex(king, movement_data.defender_color)]);
+		//const int ALLY_KING_NOW = std::countr_zero(game_state_ctx.board.pieces[getPieceIndex(king, movement_data.defender_color)]);
 
 		//adjust state to evaluate discovered checks
-		movement_data.picked_square_idx = ALLY_KING_NOW;
+		movement_data.picked_square_idx = processed_square_idx;// ALLY_KING_NOW;
 		movement_data.placement_square_idx = hold_movement_data.HOLD_PLACEMENT_SQUARE_IDX;
 
 		//serach whether the exact place the king moved is unavailable
-		int DISCOVERED = evalSquareAttack(game_state_ctx, processed_square, imposing, ALLY_KING_NOW, extr_pd_sim, check);
+		int DISCOVERED = evalSquareAttack(game_state_ctx, processed_square, imposing, processed_square_idx, extr_pd_sim, check);//ALLY_KING_NOW, extr_pd_sim, check);
 
 		//prepare state to reverse that exact king move
 		movement_data.picked_square_idx = king_pos;
 		movement_data.placement_square_idx = processed_square_idx;
 		movement_data.picked_piece_type = calcPickedPieceType(game_state_ctx, processed_square);
-		movement_data.placed_piece_type = -1;
+		//movement_data.placed_piece_type = -1;
+		//movement_data.placed_piece_type = calcPieceTypeInfo(game_state_ctx, processed_square); //for reversal you need to use the previous piece you had. meaning you have to store that exact previous piece type somewhere
+		movement_data.placed_piece_type = HOLD_OVERTAKEN_PIECE_TYPE;
 
 		//reverse the king move
 		performSwitch(game_state_ctx, switch_teams_sim);
@@ -748,6 +757,24 @@ void EvalCheckAndMateSystem::kingMoveReversal(GameStateContextComponent& game_st
 	movement_data.placed_piece_type = hold_movement_data.HOLD_PLACED_PIECE_TYPE;
 }
 
+int EvalCheckAndMateSystem::calcPieceTypeInfo(GameStateContextComponent& game_state_ctx, uint64_t processed_square)
+{
+	using enum occupancyInfo::occupancy;
+
+	auto& [BOARD, movement_data, _1, _2] = game_state_ctx;
+
+	//check if a piece exists at the placement square
+	const int IS_PIECE_PRESENT = (BOARD.occupancy[all] & processed_square) > 0;
+	
+	//check what piece exists at the placement square
+	const int PICKED_PIECE_TYPE = calcPickedPieceType(game_state_ctx, processed_square);
+
+	//present = 1, 0
+	//type	  = 0 - 11
+	
+	//(1 - ( 2 * ( 1 - present))) * picked
+	return (2 * IS_PIECE_PRESENT - 1) * PICKED_PIECE_TYPE;
+}
 //test and debug tomorrow
 
 //for tomorrow:
