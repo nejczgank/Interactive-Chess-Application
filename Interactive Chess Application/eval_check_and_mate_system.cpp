@@ -646,19 +646,16 @@ bool EvalCheckAndMateSystem::canKingMove(GameStateContextComponent& game_state_c
 
 		//Remove the least significant square for subsequent iterations
 		king_moves &= ~processed_square;
-
-		//adjust movement data to where the king is set to move
-		movement_data.picked_square_idx = king_pos;						//where the king currently resides
+		
+		//convert to index for movement
 		int processed_square_idx = std::countr_zero(processed_square);
-		movement_data.placement_square_idx = processed_square_idx;		//where the king is about to move
-		movement_data.picked_piece_type = calcPickedPieceType(game_state_ctx, king_board);
+
+		//prepare state to move the king to the simulated position
+		prepareKingMoveState(game_state_ctx, king_move_info, king_board ,processed_square_idx);
 
 		//check what piece exists at the placement square if any
 		//subsequently adjust place piece type to account for variation
-
-		//movement_data.placed_piece_type = -1;
 		movement_data.placed_piece_type = calcPieceTypeInfo(game_state_ctx, processed_square);
-
 		const int HOLD_OVERTAKEN_PIECE_TYPE = movement_data.placed_piece_type;//used for subsequent reversal 
 
 		//move the king
@@ -666,26 +663,14 @@ bool EvalCheckAndMateSystem::canKingMove(GameStateContextComponent& game_state_c
 		BoardUpdatingSystem::updateBoards(game_state_ctx, processed_square);
 		performSwitch(game_state_ctx, switch_teams_sim);
 
-		//restore state
-		/*movement_data.picked_piece_type = hold_movement_data.HOLD_PICKED_PIECE_TYPE;
-		movement_data.placed_piece_type = hold_movement_data.HOLD_PLACED_PIECE_TYPE;*/
-
-		//search for where the allied king is located as of right now
-		//const int ALLY_KING_NOW = std::countr_zero(game_state_ctx.board.pieces[getPieceIndex(king, movement_data.defender_color)]);
-
 		//adjust state to evaluate discovered checks
-		movement_data.picked_square_idx = processed_square_idx;// ALLY_KING_NOW;
+		movement_data.picked_square_idx = processed_square_idx;
 		movement_data.placement_square_idx = hold_movement_data.HOLD_PLACEMENT_SQUARE_IDX;
-
-		//serach whether the exact place the king moved is unavailable
+		//search whether the exact place the king moved is unavailable
 		int DISCOVERED = evalSquareAttack(game_state_ctx, processed_square, imposing, processed_square_idx, extr_pd_sim, check);//ALLY_KING_NOW, extr_pd_sim, check);
 
 		//prepare state to reverse that exact king move
-		movement_data.picked_square_idx = king_pos;
-		movement_data.placement_square_idx = processed_square_idx;
-		movement_data.picked_piece_type = calcPickedPieceType(game_state_ctx, processed_square);
-		//movement_data.placed_piece_type = -1;
-		//movement_data.placed_piece_type = calcPieceTypeInfo(game_state_ctx, processed_square); //for reversal you need to use the previous piece you had. meaning you have to store that exact previous piece type somewhere
+		prepareKingMoveState(game_state_ctx, king_move_info, processed_square, processed_square_idx);
 		movement_data.placed_piece_type = HOLD_OVERTAKEN_PIECE_TYPE;
 
 		//reverse the king move
@@ -775,16 +760,14 @@ int EvalCheckAndMateSystem::calcPieceTypeInfo(GameStateContextComponent& game_st
 	//(1 - ( 2 * ( 1 - present))) * picked
 	return (2 * IS_PIECE_PRESENT - 1) * PICKED_PIECE_TYPE;
 }
-//test and debug tomorrow
 
-//for tomorrow:
-// PRIORITY FIXES
-//1. -1 should only be for empty squares... check if you messed up IT'S FINE
-//2. finish canKingMove DONE
-//3. test the code DONE
-//5. handle checkmate in the main game loop DONE
-//6. figure out whether to add en-passant as well or nah NAHHH
-//7. clean up the comments mess OKAY
-//8. clean up dead structs in header DONE
-//9. combine namespaces maybe NAHHH
-//10. merge the refactor into dev branch and then pull from the dev branch into main branch TODO
+void EvalCheckAndMateSystem::prepareKingMoveState(GameStateContextComponent& game_state_ctx, KingMovementComponent& king_movement, const uint64_t VALID_PIECE_PLACEMENT, const int processed_square_idx)
+{	
+	//adjust movement data to where the king is set to move
+	auto& movement_data = game_state_ctx.movement_data;
+	auto& [_1, king_pos, king_board] = king_movement;
+
+	movement_data.picked_square_idx = king_pos;						//where the king currently resides
+	movement_data.placement_square_idx = processed_square_idx;		//where the king is about to move
+	movement_data.picked_piece_type = calcPickedPieceType(game_state_ctx, VALID_PIECE_PLACEMENT);
+}

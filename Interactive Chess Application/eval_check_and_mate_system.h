@@ -83,12 +83,6 @@ private:
 		uint64_t king_board{};
 	};
 
-	/*struct OvertakePieceComponent
-	{
-		uint64_t overtaken_piece_type{};
-
-	};*/
-
 	//determine calculation type
 	static inline constexpr int getPieceIndex(const int, const int);
 	static PickedPiecesComponent findPickedPieces(const GameStateContextComponent&, const AttackEvalFlagsInfo::eval_flags, const uint64_t);
@@ -121,5 +115,6 @@ private:
 	static KingMovementComponent findKingMoves(GameStateContextComponent&, SwitchTeamsComponent&, HoldMovementDataComponent&);
 	static inline void kingMoveReversal(GameStateContextComponent&, HoldMovementDataComponent&);
 	static inline int calcPieceTypeInfo(GameStateContextComponent&, uint64_t);
+	static inline void prepareKingMoveState(GameStateContextComponent&, KingMovementComponent&, const uint64_t, const int);
 };
 
