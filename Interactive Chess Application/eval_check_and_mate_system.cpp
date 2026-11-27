@@ -757,8 +757,9 @@ int EvalCheckAndMateSystem::calcPieceTypeInfo(GameStateContextComponent& game_st
 	//present = 1, 0
 	//type	  = 0 - 11
 	
-	//(1 - ( 2 * ( 1 - present))) * picked
-	return (2 * IS_PIECE_PRESENT - 1) * PICKED_PIECE_TYPE;
+	//(1 - ( 2 * (1 - present)) * (1 + picked)) - present
+	//((2 * IS_PIECE_PRESENT - 1) * (1 + PICKED_PIECE_TYPE)) - IS_PIECE_PRESENT;
+	return 2 * IS_PIECE_PRESENT * PICKED_PIECE_TYPE + IS_PIECE_PRESENT - PICKED_PIECE_TYPE - 1;
 }
 
 void EvalCheckAndMateSystem::prepareKingMoveState(GameStateContextComponent& game_state_ctx, KingMovementComponent& king_movement, const uint64_t VALID_PIECE_PLACEMENT, const int processed_square_idx)
